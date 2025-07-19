@@ -5,16 +5,13 @@ from PIL import Image, ImageTk
 import json
 import os
 
-image_refs = []  # 画像参照を保持するリスト
-inserted_images = []
-
-
+inserted_images = {}
 
 # --- 関数定義 ---
 def new_file():
     """新規ファイルを作成"""
     main_memo.delete(1.0, tk.END)
-    main_memo.title("ピクメモ")
+    form.title("ピクメモ")
 
 def open_file():
     """ファイルを開く"""
@@ -29,38 +26,41 @@ def open_file():
     try:
         # 既存の内容をクリア
         main_memo.delete(1.0, tk.END)
+        # 画像参照をクリア
         inserted_images.clear()
 
         with open(filepath, "r", encoding="utf-8") as f:
             loaded_data = json.load(f)
         
-        # テキストを挿入
-        main_memo.insert(tk.END, loaded_data.get("text_content", ""))
 
-        # 画像を再挿入
-        for img_path in loaded_data.get("images", []):
-            if os.path.exists(img_path):
-                original_image = Image.open(img_path)
-                width = 300
-                height = int(original_image.height * width / original_image.width)
-                resized_image = original_image.resize((width, height), Image.Resampling.LANCZOS)
-                photo = ImageTk.PhotoImage(resized_image)
-                
-                main_memo.image_create(tk.END, image=photo)
-                
-                # 読み込んだ画像の参照とパスをリストに追加
-                inserted_images.append({
-                    "photo": photo,
-                    "path": img_path
-                })
-            else:
-                print(f"警告: 画像ファイルが見つかりません - {img_path}")
+        # 読み込んだ要素を順に処理
+        for item in loaded_data:
+            if item["type"] == "text":
+                main_memo.insert(tk.END, item["content"])
+                print("1OK")
+            elif item["type"] == "image":
+                img_path = item["path"]
+                if os.path.exists(img_path):
+                    original_image = Image.open(img_path)
+                    width = 300
+                    height = int(original_image.height * width / original_image.width)
+                    resized_image = original_image.resize((width, height), Image.Resampling.LANCZOS)
+                    photo = ImageTk.PhotoImage(resized_image)
 
-        messagebox.showinfo("読み込み完了", "ファイルが正常に読み込まれました。")
+                    # 画像を挿入し、画像名を取得
+                    image_name = main_memo.image_create(tk.END, image=photo)
+                    # 画像名をキーにしてパスとPhotoImageを保持
+                    inserted_images[image_name] = {"photo": photo, "path": img_path}
+                    print("2OK")
+                else:
+                    main_memo.insert(tk.END, f"[画像が見つかりません: {os.path.basename(img_path)}]")
+                    print("3OK")
+
+        print("読み込み完了", "ファイルが正常に読み込まれました。")
+        form.title(os.path.basename(filepath))
 
     except Exception as e:
-        messagebox.showerror("エラー", f"ファイルの読み込み中にエラーが発生しました: {e}")
-
+        print("エラー", f"ファイルの読み込み中にエラーが発生しました: {e}")
 
 def save_file():
     """ファイルを保存"""
@@ -72,19 +72,36 @@ def save_file():
         return
     
     try:
-        # テキストと画像のパスを辞書にまとめる
-        data_to_save = {
-            "text_content": main_memo.get(1.0, tk.END),
-            "images": [img["path"] for img in inserted_images]
-        }
-        
+        # ドキュメントの全内容（テキストと画像）を取得
+        # Textウィジェットの全インデックスを取得
+        data_to_save = []
+        start_index = "1.0"
+        end_index = main_memo.index(tk.END)
+
+        # Text.dumpでテキストと画像の流れを取得
+        dump = main_memo.dump(start_index, end_index, image=True, text=True)
+        for i in range(len(dump)):
+            tag = dump[i][0]
+            if tag == "text":
+                text = dump[i][1]
+                if text:
+                    data_to_save.append({"type": "text", "content": text})
+            elif tag == "image":
+                image_name = dump[i][1]
+                image_info = inserted_images.get(image_name)
+                if image_info and "path" in image_info:
+                    data_to_save.append({"type": "image", "path": image_info["path"]})
+                else:
+                    messagebox.showwarning("警告", f"画像情報が見つかりません: {image_name}")
+
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(data_to_save, f, indent=4)
-        
-        messagebox.showinfo("保存完了", "ファイルが正常に保存されました。")
+
+        print("保存完了", "ファイルが正常に保存されました。")
+        form.title(os.path.basename(filepath))
 
     except Exception as e:
-        messagebox.showerror("エラー", f"ファイルの保存中にエラーが発生しました: {e}")
+        print("エラー", f"ファイルの保存中にエラーが発生しました: {e}")
 
 def cut_text():
     """テキストを切り取り"""
@@ -124,15 +141,11 @@ def insert_image():
 
         photo=ImageTk.PhotoImage(resized_image)
 
-        main_memo.image_create(tk.INSERT,image=photo)
+        # 画像を挿入し、画像名を取得
+        image_name = main_memo.image_create(tk.INSERT, image=photo)
+        # 画像名をキーにしてパスとPhotoImageを保持
+        inserted_images[image_name] = {"photo": photo, "path": filepath}
 
-        #画像の参照とパスをリストに保存
-        inserted_images.append({
-            "photo": photo,
-            "path": filepath
-        })
-
-        image_refs.append(photo)  # 参照を保持してガーベジコレクションを防ぐ
     except Exception as e:
         messagebox.showerror("エラー", f"画像ファイルの読み込み中にエラーが発生しました: {e}")
 
@@ -163,6 +176,12 @@ menubar.add_cascade(label="編集(E)", menu=edit_menu)
 edit_menu.add_command(label="切り取り(T)", command=cut_text)
 edit_menu.add_command(label="コピー(C)", command=copy_text)
 edit_menu.add_command(label="貼り付け(P)", command=paste_text)
+edit_menu.add_command(label="画像挿入(I)", command=insert_image)
+
+# 「表示」メニューの作成
+view_menu = Menu(menubar, tearoff=0)
+menubar.add_cascade(label="表示(V)", menu=view_menu)
+view_menu.add_command(label="画面モード", command=lambda: messagebox.showinfo("画面モード", "画面モードの機能はまだ実装されていません。"))
 
 # 「ヘルプ」メニューの作成
 help_menu = Menu(menubar, tearoff=0)
@@ -181,7 +200,7 @@ scrollbar.pack(side='right', fill='y')
 main_memo.config(yscrollcommand=scrollbar.set)
 
 #画像挿入ボタンを作成
-insert_button=tk.Button(form,text="画像を挿入",command=insert_image)
-insert_button.pack(pady=10)
+#insert_button=tk.Button(form,text="画像を挿入",command=insert_image)
+#insert_button.pack(pady=10)
 
 form.mainloop()#実行
