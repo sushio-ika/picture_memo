@@ -2,8 +2,13 @@ import random
 import tkinter as tk
 from tkinter import Menu, scrolledtext, filedialog, messagebox
 from PIL import Image, ImageTk
+import json
+import os
 
 image_refs = []  # 画像参照を保持するリスト
+inserted_images = []
+
+
 
 # --- 関数定義 ---
 def new_file():
@@ -14,26 +19,72 @@ def new_file():
 def open_file():
     """ファイルを開く"""
     filepath = filedialog.askopenfilename(
-        defaultextension=".txt",
-        filetypes=[("Text files", "*.txt"), ("All files", "*.*")]#拡張子設定
+        defaultextension=".json",
+        filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
     )
-    if filepath:
-        with open(filepath, "r", encoding="utf-8") as file:
-            main_memo.delete(1.0, tk.END)
-            main_memo.insert(tk.END, file.read())
-        form.title(f"{filepath}ピクメモ")
+
+    if not filepath:
+        return
+    
+    try:
+        # 既存の内容をクリア
+        main_memo.delete(1.0, tk.END)
+        inserted_images.clear()
+
+        with open(filepath, "r", encoding="utf-8") as f:
+            loaded_data = json.load(f)
+        
+        # テキストを挿入
+        main_memo.insert(tk.END, loaded_data.get("text_content", ""))
+
+        # 画像を再挿入
+        for img_path in loaded_data.get("images", []):
+            if os.path.exists(img_path):
+                original_image = Image.open(img_path)
+                width = 300
+                height = int(original_image.height * width / original_image.width)
+                resized_image = original_image.resize((width, height), Image.Resampling.LANCZOS)
+                photo = ImageTk.PhotoImage(resized_image)
+                
+                main_memo.image_create(tk.END, image=photo)
+                
+                # 読み込んだ画像の参照とパスをリストに追加
+                inserted_images.append({
+                    "photo": photo,
+                    "path": img_path
+                })
+            else:
+                print(f"警告: 画像ファイルが見つかりません - {img_path}")
+
+        messagebox.showinfo("読み込み完了", "ファイルが正常に読み込まれました。")
+
+    except Exception as e:
+        messagebox.showerror("エラー", f"ファイルの読み込み中にエラーが発生しました: {e}")
+
 
 def save_file():
     """ファイルを保存"""
     filepath = filedialog.asksaveasfilename(
-        defaultextension=".txt",
-        filetypes=[("Text files", "*.txt"), ("All files", "*.*")]
+        defaultextension=".json",
+        filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
     )
-    if filepath:
-        with open(filepath, "w", encoding="utf-8") as file:
-            file.write(main_memo.get(1.0, tk.END))
-        form.title(f"{filepath}ピクメモ")
-        messagebox.showinfo("保存完了", "ファイルが正常に保存されました。")#メッセージ表示
+    if not filepath:
+        return
+    
+    try:
+        # テキストと画像のパスを辞書にまとめる
+        data_to_save = {
+            "text_content": main_memo.get(1.0, tk.END),
+            "images": [img["path"] for img in inserted_images]
+        }
+        
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump(data_to_save, f, indent=4)
+        
+        messagebox.showinfo("保存完了", "ファイルが正常に保存されました。")
+
+    except Exception as e:
+        messagebox.showerror("エラー", f"ファイルの保存中にエラーが発生しました: {e}")
 
 def cut_text():
     """テキストを切り取り"""
@@ -60,6 +111,7 @@ def insert_image():
         title="画像を選択してください",
         filetypes=[("Image files","*.png *.jpg *.jpeg *.gif *.bmp")]
     )
+
     if not filepath:
         return
 
@@ -74,14 +126,17 @@ def insert_image():
 
         main_memo.image_create(tk.INSERT,image=photo)
 
+        #画像の参照とパスをリストに保存
+        inserted_images.append({
+            "photo": photo,
+            "path": filepath
+        })
+
         image_refs.append(photo)  # 参照を保持してガーベジコレクションを防ぐ
     except Exception as e:
-        print(f"画像ファイルの読み込み中にエラーが発生しました: {e}")
+        messagebox.showerror("エラー", f"画像ファイルの読み込み中にエラーが発生しました: {e}")
 
 
-#def btn_click():
-    #rm=random.randint(0,len(msg)-1)
-    #moji_lbl["text"]=msg[rm]
 
 
 
