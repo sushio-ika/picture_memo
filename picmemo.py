@@ -7,7 +7,7 @@ import os
 
 inserted_images = {}
 current_filepath = None  # 現在開いているファイルのパス
-change_memo = False
+modified = False
 
 
 # --- 関数定義 ---
@@ -19,7 +19,7 @@ def new_file():
     form.title("ピクメモ")
     current_filepath = None  # 新規作成なのでパスはクリア
 
-    change_memo = False  # 編集状態をリセット
+    modified = False  # 編集状態をリセット
 
 def open_file():
     """ファイルを開く"""
@@ -75,7 +75,7 @@ def open_file():
 
         print("読み込み完了", "ファイルが正常に読み込まれました。")
         form.title(os.path.basename(filepath))
-        change_memo = False  # 編集状態をリセット
+        modified = False  # 編集状態をリセット
 
     except Exception as e:
         print("エラー", f"ファイルの読み込み中にエラーが発生しました: {e}")
@@ -123,7 +123,10 @@ def save_file(overwrite=False):
 
         print("保存完了", "ファイルが正常に保存されました。")
         form.title(os.path.basename(filepath))
-        change_memo = False  # 編集状態をリセット
+        modified = False  # 編集状態をリセット
+        # Tkinterのmodifiedフラグもリセット
+        main_memo.edit_modified(False)
+
     except Exception as e:
         print("エラー", f"ファイルの保存中にエラーが発生しました: {e}")
 
@@ -145,6 +148,14 @@ def show_about():
         "ピクメモについて",
         "画像や動画を挿入できるメモ帳風アプリケーションです。\n"
         "Python と tkinter で作成しました。"
+    )
+
+def show_how_to_use():
+    """使い方を表示"""
+    messagebox.showinfo(
+        "ショートカットキー",
+        "各ボタンに書いてあるキーをCtrlキーと一緒に押すことで、\n"
+        "同じ操作を行うことができます。"
     )
 
 def insert_image():
@@ -209,14 +220,18 @@ def put_one_forward():
     except tk.TclError:
         print("警告", "これ以上進めることができません。")
 
-def change_memo(event=None):
-    global change_memo
-    change_memo = True
-    # 編集状態をリセット（TkinterのmodifiedフラグをFalseに戻す）
-    main_memo.edit_modified(False)
+def func_modified(event=None):
+    """main_memoの編集状態が変更されたときに呼び出される関数"""
+    global modified
+    if main_memo.edit_modified():# 編集が行われた場合
+        modified = True
+    else:# 編集が行われていない場合
+        modified = False
 
 def on_closing():
-    if change_memo:
+    """アプリケーションを閉じる前に確認"""
+    global modified
+    if modified: # modifiedがTrueの場合
         result = messagebox.askyesnocancel("確認", "変更内容を保存しますか？")
         if result is None:  # キャンセルが選択された場合
             return
@@ -243,7 +258,7 @@ file_menu.add_command(label="開く(O)", command=open_file)
 file_menu.add_command(label="名前を付けて保存(S)", command=lambda: save_file(overwrite=False))
 file_menu.add_command(label="上書き保存(S)", command=lambda: save_file(overwrite=True))
 file_menu.add_separator()  # 区切り線
-file_menu.add_command(label="終了(Q)", command=lambda: on_closing)
+file_menu.add_command(label="終了(Q)", command=on_closing)
 
 # 「編集」メニューの作成
 edit_menu = Menu(menubar, tearoff=0)
@@ -264,7 +279,8 @@ view_menu.add_command(label="画面モード", command=lambda: messagebox.showin
 # 「ヘルプ」メニューの作成
 help_menu = Menu(menubar, tearoff=0)
 menubar.add_cascade(label="ヘルプ", menu=help_menu)
-help_menu.add_command(label="メモ帳風アプリについて(H)", command=show_about)
+help_menu.add_command(label="メモ帳風アプリについて", command=show_about)
+help_menu.add_command(label="ショートカットキー", command=show_how_to_use)
 
 form.bind('<Control-n>', lambda event: new_file())
 form.bind('<Control-o>', lambda event: open_file())
@@ -272,7 +288,6 @@ form.bind('<Control-s>', lambda event: save_file(overwrite=True))
 form.bind('<Control-i>', lambda event: insert_image())
 form.bind('<Control-z>', lambda event: put_one_back())
 form.bind('<Control-y>', lambda event: put_one_forward())
-form.bind('<Control-h>', lambda event: show_about())
 form.bind('<Control-q>', lambda event: on_closing())
 
 text_frame = tk.Frame(form)
@@ -285,7 +300,7 @@ scrollbar = tk.Scrollbar(text_frame, command=main_memo.yview)
 scrollbar.pack(side='right', fill='y')
 main_memo.config(yscrollcommand=scrollbar.set)
 
-main_memo.bind('<<Modified>>', change_memo)
+main_memo.bind('<<Modified>>', func_modified)
 
 #画像挿入ボタンを作成
 #insert_button=tk.Button(form,text="画像を挿入",command=insert_image)
