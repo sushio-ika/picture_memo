@@ -75,8 +75,8 @@ def open_file():
                     main_memo.tag_bind(image_name, "<Button-1>", lambda event, img_path=image_path: show_image_popup(img_path))
                     main_memo.tag_bind(image_name, "<Button-3>", lambda event, img_name=image_name: show_image_context_menu(event, img_name))
                     
-                    main_memo.tag_bind(image_name, "<Enter>", lambda event: change_cursor_to_hand())
-                    main_memo.tag_bind(image_name, "<Leave>", lambda event: restore_cursor())
+                    main_memo.tag_bind(image_name, "<Enter>", lambda event: main_memo.config(cursor="hand2"))
+                    main_memo.tag_bind(image_name, "<Leave>", lambda event: main_memo.config(cursor="xterm"))
                 else:# 画像ファイルが存在しない場合
                     main_memo.insert(tk.END, f"[画像が見つかりません: {os.path.basename(image_path)}]")
         
@@ -168,9 +168,20 @@ def show_how_to_use():
         "ショートカットキー",
         "各ボタンに書いてあるキーをCtrlキーと一緒に押すことで、\n"
         "同じ操作を行うことができます。"
+        "\n\n"
+        "新規作成: \tCtrl + N\n"
+        "開く: \t\tCtrl + O\n"
+        "上書き保存: \tCtrl + S\n"
+        "画像挿入: \tCtrl + I\n"
+        "一つ戻す: \t\tCtrl + Z\n"
+        "一つ進める: \tCtrl + Y\n"
+        "終了: \t\tCtrl + Q\n"
     )
 
 def insert_image():
+    """画像を挿入"""
+    global inserted_images
+
     filepath=filedialog.askopenfilename(
         title="画像を選択してください",
         filetypes=[("Image files","*.png *.jpg *.jpeg *.gif *.bmp")]
@@ -187,6 +198,12 @@ def insert_image():
         resized_image=original_image.resize((width,height),Image.Resampling.LANCZOS)
 
         photo=ImageTk.PhotoImage(resized_image)
+
+        # 現在のカーソル位置の直前の文字を確認
+        current_index = main_memo.index(tk.INSERT)
+        if current_index != "1.0" and main_memo.get(f"{current_index}-1c", current_index) == "\t":
+            # カーソルが既にタブの直後にある場合、そのタブを削除
+            main_memo.delete(f"{current_index}-1c", current_index)
 
         # 画像を挿入し、画像名を取得
         image_name = main_memo.image_create(tk.INSERT, image=photo)
@@ -225,6 +242,16 @@ def show_image_popup(img_path):
         label = tk.Label(popup, image=photo)
         label.image = photo  # 参照保持
         label.pack()
+
+
+        # ポップアップウィンドウの位置を親ウィンドウの中央に配置
+        popup.update_idletasks() # ウィンドウのサイズが正確に計算されるように更新
+            
+        x = form.winfo_x() + (form.winfo_width() // 2) - (popup.winfo_width() // 2)   #元ウィンドウのx座標 + 元ウィンドウの幅の半分 - ポップアップの幅の半分
+        y = form.winfo_y() + (form.winfo_height() // 2) - (popup.winfo_height() // 2) #元ウィンドウのy座標 + 元ウィンドウの高さの半分 - ポップアップの高さの半分
+
+        popup.geometry(f"+{x}+{y}") # サイズは画像によって変わるので、位置だけ設定
+
     except Exception as e:
         messagebox.showerror("エラー", f"画像の拡大表示に失敗しました: {e}")
 
@@ -317,6 +344,12 @@ edit_menu.add_command(label="一つ進める(Y)", command=put_one_forward)
 view_menu = Menu(menubar, tearoff=0)    
 menubar.add_cascade(label="表示", menu=view_menu)
 view_menu.add_command(label="画面モード", command=lambda: messagebox.showinfo("画面モード", "画面モードの機能はまだ実装されていません。"))
+
+# 「設定」メニューの作成
+settings_menu = Menu(menubar, tearoff=0)
+menubar.add_cascade(label="設定", menu=settings_menu)
+settings_menu.add_command(label="フォント設定", command=lambda: messagebox.showinfo("フォント設定", "フォント設定の機能はまだ実装されていません。"))
+settings_menu.add_command(label="テーマ設定", command=lambda: messagebox.showinfo("テーマ設定", "テーマ設定の機能はまだ実装されていません。"))
 
 # 「ヘルプ」メニューの作成
 help_menu = Menu(menubar, tearoff=0)
