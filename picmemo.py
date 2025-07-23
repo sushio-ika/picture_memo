@@ -32,7 +32,7 @@ def open_file():
     if not filepath:
         return
     
-    current_filepath = filepath 
+    current_filepath = filepath # ファイルパスを更新
 
     try:
         # 既存の内容をクリア
@@ -40,34 +40,41 @@ def open_file():
         # 画像参照をクリア
         inserted_images.clear()
 
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(current_filepath, "r", encoding="utf-8") as f:
             loaded_data = json.load(f)
         
 
         # 読み込んだ要素を順に処理
         for item in loaded_data:
-            if item["type"] == "text":
+            if item["type"] == "text":# テキストの場合
                 main_memo.insert(tk.END, item["content"])
-            elif item["type"] == "image":
-                img_path = item["path"]
-                if os.path.exists(img_path):
-                    original_image = Image.open(img_path)
+            elif item["type"] == "image":# 画像の場合
+                image_path = item["path"]# 画像のパスを取得
+                if os.path.exists(image_path):# 画像ファイルが存在する場合
+                    original_image = Image.open(image_path)# 画像を開く
+                    
+                    # 画像のサイズを300pxにリサイズ
                     width = 300
                     height = int(original_image.height * width / original_image.width)
                     resized_image = original_image.resize((width, height), Image.Resampling.LANCZOS)
-                    photo = ImageTk.PhotoImage(resized_image)
+                    
+                    photo = ImageTk.PhotoImage(resized_image)# 画像をPhotoImageに変換
 
                     # 画像を挿入し、画像名を取得
-                    image_name = main_memo.image_create(tk.END, image=photo)
+                    image_name = main_memo.image_create(tk.INSERT, image=photo)
                     # 画像名をキーにしてパスとPhotoImageを保持
-                    inserted_images[image_name] = {"photo": photo, "path": img_path}
+                    inserted_images[image_name] = {"photo": photo, "path": image_path}
 
-                    main_memo.tag_add(image_name, f"end-1c")
-                    main_memo.tag_bind(image_name, "<Button-1>", lambda event, img_path=img_path: show_image_popup(img_path))
 
-                else:
-                    main_memo.insert(tk.END, f"[画像が見つかりません: {os.path.basename(img_path)}]")
-
+                    main_memo.tag_add(image_name, f"insert-1c") # image_nameをこのインデックスに追加
+                    main_memo.tag_bind(image_name, "<Button-1>", lambda event, img_path=image_path: show_image_popup(img_path))
+                    main_memo.tag_bind(image_name, "<Button-3>", lambda event, img_name=image_name: show_image_context_menu(event, img_name))
+                    
+                    main_memo.tag_bind(image_name, "<Enter>", lambda event: change_cursor_to_hand())
+                    main_memo.tag_bind(image_name, "<Leave>", lambda event: restore_cursor())
+                else:# 画像ファイルが存在しない場合
+                    main_memo.insert(tk.END, f"[画像が見つかりません: {os.path.basename(image_path)}]")
+        
         # 末尾の余計な改行を削除
         content = main_memo.get("1.0", tk.END)
         if content.endswith('\n'):
@@ -184,6 +191,10 @@ def insert_image():
         # 画像クリックイベントをバインド
         main_memo.tag_add(image_name, f"insert-1c")
         main_memo.tag_bind(image_name, "<Button-1>", lambda event, img_path=filepath: show_image_popup(img_path))
+        main_memo.tag_bind(image_name, "<Button-3>", lambda event, img_name=image_name: show_image_context_menu(event, img_name))
+
+        main_memo.tag_bind(image_name, "<Enter>", lambda event: change_cursor_to_hand())
+        main_memo.tag_bind(image_name, "<Leave>", lambda event: restore_cursor())
 
     except Exception as e:
         messagebox.showerror("エラー", f"画像ファイルの読み込み中にエラーが発生しました: {e}")
@@ -231,13 +242,37 @@ def func_modified(event=None):
 def on_closing():
     """アプリケーションを閉じる前に確認"""
     global modified
-    if modified: # modifiedがTrueの場合
+    if modified: # change_memoがTrueの場合
         result = messagebox.askyesnocancel("確認", "変更内容を保存しますか？")
         if result is None:  # キャンセルが選択された場合
             return
         elif result:  # はいが選択された場合
             save_file(overwrite=True)
     form.destroy()  # はいまたはいいえが選択された場合、アプリケーションを終了
+
+def show_image_context_menu(event, image_name):
+    context_menu = tk.Menu(form, tearoff=0)
+    context_menu.add_command(label="画像の拡大表示", command=lambda: show_image_popup(inserted_images[image_name]['path']))
+    context_menu.add_command(label="画像を削除", command=lambda: delete_image(image_name))
+    context_menu.post(event.x_root, event.y_root)
+
+def delete_image(image_name):
+    # 画像が挿入されている位置を特定
+    image_index = main_memo.image_cget(image_name, "image")
+    # 画像を削除
+    main_memo.delete(image_index)
+    # inserted_images辞書からエントリを削除
+    if image_name in inserted_images:
+        del inserted_images[image_name]
+    print(f"画像 '{image_name}' が削除されました。")
+
+def change_cursor_to_hand():
+    """カーソルを手の形に変更"""
+    main_memo.config(cursor="hand2")
+
+def restore_cursor():
+    """カーソルをデフォルトに戻す"""
+    main_memo.config(cursor="xterm") # または "arrow"
 
 
 #---GUI---
