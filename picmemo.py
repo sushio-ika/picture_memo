@@ -9,6 +9,11 @@ inserted_images = {}
 current_filepath = None  # 現在開いているファイルのパス
 modified = False
 
+current_popup_photo = None
+current_original_image = None
+current_image_label = None
+current_popup_window = None # ポップアップウィンドウ自体への参照も保持
+
 
 # --- 関数定義 ---
 def new_file():
@@ -193,8 +198,8 @@ def insert_image():
         main_memo.tag_bind(image_name, "<Button-1>", lambda event, img_path=filepath: show_image_popup(img_path))
         main_memo.tag_bind(image_name, "<Button-3>", lambda event, img_name=image_name: show_image_context_menu(event, img_name))
 
-        main_memo.tag_bind(image_name, "<Enter>", lambda event: change_cursor_to_hand())
-        main_memo.tag_bind(image_name, "<Leave>", lambda event: restore_cursor())
+        main_memo.tag_bind(image_name, "<Enter>", lambda event: main_memo.config(cursor="hand2"))
+        main_memo.tag_bind(image_name, "<Leave>", lambda event: main_memo.config(cursor="xterm"))
 
     except Exception as e:
         messagebox.showerror("エラー", f"画像ファイルの読み込み中にエラーが発生しました: {e}")
@@ -203,7 +208,13 @@ def show_image_popup(img_path):
     try:
         popup = tk.Toplevel(form)
         popup.title("画像の拡大表示")
-        img = Image.open(img_path)
+
+        popup.focus_set()#このウィンドウが開いたときにフォーカスを設定
+
+        popup.resizable(False,False)  # ウィンドウのサイズ変更を禁止
+        popup.bind("<FocusOut>", lambda event: popup.destroy())  # フォーカスが外れたら閉じる（元のウィンドウにフォーカスが設定されたとき）
+
+        img = Image.open(img_path)  # 画像のパスを指定して画像を開く
         # 必要に応じて最大サイズを制限
         max_width, max_height = 800, 600
         w, h = img.size
@@ -251,12 +262,14 @@ def on_closing():
     form.destroy()  # はいまたはいいえが選択された場合、アプリケーションを終了
 
 def show_image_context_menu(event, image_name):
+    """画像を右クリックしたときに表示されるコンテキストメニュー"""
     context_menu = tk.Menu(form, tearoff=0)
     context_menu.add_command(label="画像の拡大表示", command=lambda: show_image_popup(inserted_images[image_name]['path']))
     context_menu.add_command(label="画像を削除", command=lambda: delete_image(image_name))
     context_menu.post(event.x_root, event.y_root)
 
 def delete_image(image_name):
+    """画像を削除する関数"""
     # 画像が挿入されている位置を特定
     image_index = main_memo.image_cget(image_name, "image")
     # 画像を削除
@@ -266,13 +279,7 @@ def delete_image(image_name):
         del inserted_images[image_name]
     print(f"画像 '{image_name}' が削除されました。")
 
-def change_cursor_to_hand():
-    """カーソルを手の形に変更"""
-    main_memo.config(cursor="hand2")
 
-def restore_cursor():
-    """カーソルをデフォルトに戻す"""
-    main_memo.config(cursor="xterm") # または "arrow"
 
 
 #---GUI---
