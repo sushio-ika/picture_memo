@@ -8,12 +8,7 @@ import os
 inserted_images = {}
 current_filepath = None  # 現在開いているファイルのパス
 modified = False
-
-current_popup_photo = None
-current_original_image = None
-current_image_label = None
-current_popup_window = None # ポップアップウィンドウ自体への参照も保持
-
+selected_font_size = None  # フォントサイズを保持する変数
 
 # --- 関数定義 ---
 def new_file():
@@ -25,6 +20,7 @@ def new_file():
     current_filepath = None  # 新規作成なのでパスはクリア
 
     modified = False  # 編集状態をリセット
+    change_font_size(12) # デフォルトのフォントサイズに設定
 
 def open_file():
     """ファイルを開く"""
@@ -48,9 +44,14 @@ def open_file():
         with open(current_filepath, "r", encoding="utf-8") as f:
             loaded_data = json.load(f)
         
+        if "font_size" in loaded_data:# フォントサイズが指定されている場合
+            change_font_size(loaded_data["font_size"])
+        else:
+            change_font_size(12) # デフォルト値
+
 
         # 読み込んだ要素を順に処理
-        for item in loaded_data:
+        for item in loaded_data["content"]:
             if item["type"] == "text":# テキストの場合
                 main_memo.insert(tk.END, item["content"])
             elif item["type"] == "image":# 画像の場合
@@ -130,8 +131,13 @@ def save_file(overwrite=False):
                 else:
                     messagebox.showwarning("警告", f"画像情報が見つかりません: {image_name}")
 
+        full_data_to_save = {
+            "font_size": selected_font_size.get(), # 現在のフォントサイズ
+            "content": data_to_save      # 実際のメモ内容
+        }
+
         with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(data_to_save, f, indent=4)
+            json.dump(full_data_to_save, f, indent=4)  # JSON形式で保存
 
         print("保存完了", "ファイルが正常に保存されました。")
         form.title(os.path.basename(filepath))
@@ -155,11 +161,11 @@ def paste_text():
     main_memo.event_generate("<<Paste>>")
 
 def show_about():
-    """バージョン情報を表示"""
+    """アプリケーション情報を表示"""
     messagebox.showinfo(
         "ピクメモについて",
-        "画像や動画を挿入できるメモ帳風アプリケーションです。\n"
-        "Python と tkinter で作成しました。"
+        "画像を挿入できるメモ帳アプリケーションです。\n"
+        "Python と tkinter で作成しました。\n"
     )
 
 def show_how_to_use():
@@ -177,6 +183,23 @@ def show_how_to_use():
         "一つ進める: \tCtrl + Y\n"
         "終了: \t\tCtrl + Q\n"
     )
+
+def show_version():
+    """バージョン情報を表示"""
+    messagebox.showinfo(
+        "バージョン情報",
+        "バージョン:\t1.0.1\n"
+        "更新日:\t2025/07/23\n"
+    )
+
+def change_font_size(size):
+    """メインメモのフォントサイズを変更する"""
+    current_font = main_memo.cget("font")
+    font_parts = current_font.rsplit(" ", 1)
+    font_name = font_parts[0] if len(font_parts) > 1 else "Mono" # デフォルトフォント
+    
+    main_memo.config(font=(font_name, size))
+    selected_font_size.set(size) # StringVarを更新
 
 def insert_image():
     """画像を挿入"""
@@ -315,6 +338,9 @@ form.title("ピクメモ")
 form.minsize(1000,560)
 form.protocol("WM_DELETE_WINDOW", on_closing)
 
+selected_font_size = tk.IntVar()# フォントサイズを保持する変数
+selected_font_size.set(12)  # 初期フォントサイズを12ptに設定
+
 # メニューバーの作成
 menubar=Menu(form)
 form.config(menu=menubar)
@@ -348,14 +374,21 @@ view_menu.add_command(label="画面モード", command=lambda: messagebox.showin
 # 「設定」メニューの作成
 settings_menu = Menu(menubar, tearoff=0)
 menubar.add_cascade(label="設定", menu=settings_menu)
-settings_menu.add_command(label="フォント設定", command=lambda: messagebox.showinfo("フォント設定", "フォント設定の機能はまだ実装されていません。"))
+font_menu = Menu(settings_menu, tearoff=0)
+settings_menu.add_cascade(label="フォント設定", menu=font_menu)
+font_menu.add_radiobutton(label="小 (10pt)", command=lambda: change_font_size(10), variable=selected_font_size, value=10)
+font_menu.add_radiobutton(label="中 (12pt)", command=lambda: change_font_size(12), variable=selected_font_size, value=12)
+font_menu.add_radiobutton(label="大 (14pt)", command=lambda: change_font_size(14), variable=selected_font_size, value=14)
+font_menu.add_radiobutton(label="特大 (16pt)", command=lambda: change_font_size(16), variable=selected_font_size, value=16)
+font_menu.add_radiobutton(label="特特大 (18pt)", command=lambda: change_font_size(18), variable=selected_font_size, value=18)
 settings_menu.add_command(label="テーマ設定", command=lambda: messagebox.showinfo("テーマ設定", "テーマ設定の機能はまだ実装されていません。"))
 
 # 「ヘルプ」メニューの作成
 help_menu = Menu(menubar, tearoff=0)
 menubar.add_cascade(label="ヘルプ", menu=help_menu)
-help_menu.add_command(label="メモ帳風アプリについて", command=show_about)
+help_menu.add_command(label="ピクメモについて", command=show_about)
 help_menu.add_command(label="ショートカットキー", command=show_how_to_use)
+help_menu.add_command(label="バージョン情報", command=show_version)
 
 form.bind('<Control-n>', lambda event: new_file())
 form.bind('<Control-o>', lambda event: open_file())
@@ -368,7 +401,7 @@ form.bind('<Control-q>', lambda event: on_closing())
 text_frame = tk.Frame(form)
 text_frame.pack(expand=True, fill='both')
 
-main_memo = tk.Text(text_frame, bg="white", fg="black", wrap=tk.WORD, font=("Consolas", 12), undo=True)
+main_memo = tk.Text(text_frame, bg="white", fg="black", wrap=tk.WORD, font=("Mono", selected_font_size.get()), undo=True)
 main_memo.pack(side='left', expand=True, fill='both')
 
 scrollbar = tk.Scrollbar(text_frame, command=main_memo.yview)
@@ -377,8 +410,14 @@ main_memo.config(yscrollcommand=scrollbar.set)
 
 main_memo.bind('<<Modified>>', func_modified)
 
-#画像挿入ボタンを作成
-#insert_button=tk.Button(form,text="画像を挿入",command=insert_image)
-#insert_button.pack(pady=10)
+
+#ウィンドウを中央に配置
+form.update_idletasks()
+
+x = (form.winfo_screenwidth() // 2) - (form.winfo_width() // 2)   #(画面の幅 // 2) - (ウィンドウの幅 // 2)
+y = (form.winfo_screenheight() // 2) - (form.winfo_height() // 2) #(画面の高さ // 2) - (ウィンドウの高さ // 2)
+
+form.geometry(f"+{x}+{y}")
+
 
 form.mainloop()#実行
