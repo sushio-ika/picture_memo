@@ -9,6 +9,7 @@ inserted_images = {}
 current_filepath = None  # 現在開いているファイルのパス
 modified = False
 selected_font_size = None  # フォントサイズを保持する変数
+selected_image_name_for_highlight = None  # 現在ハイライトされている画像の名前
 
 # --- 関数定義 ---
 def new_file():
@@ -73,7 +74,8 @@ def open_file():
 
 
                     main_memo.tag_add(image_name, f"insert-1c") # image_nameをこのインデックスに追加
-                    main_memo.tag_bind(image_name, "<Button-1>", lambda event, img_path=image_path: show_image_popup(img_path))
+                    main_memo.tag_bind(image_name, "<Button-1>", lambda event, img_path=filepath,img_name=image_name: on_image_click(event, img_path, img_name))
+                    main_memo.tag_bind(image_name, "<Double-Button-1>", lambda event, img_path=image_path: show_image_popup(img_path))
                     main_memo.tag_bind(image_name, "<Button-3>", lambda event, img_name=image_name: show_image_context_menu(event, img_name))
                     
                     main_memo.tag_bind(image_name, "<Enter>", lambda event: main_memo.config(cursor="hand2"))
@@ -194,11 +196,11 @@ def show_version():
 
 def change_font_size(size):
     """メインメモのフォントサイズを変更する"""
-    current_font = main_memo.cget("font")
-    font_parts = current_font.rsplit(" ", 1)
-    font_name = font_parts[0] if len(font_parts) > 1 else "Mono" # デフォルトフォント
-    
-    main_memo.config(font=(font_name, size))
+    current_font = main_memo.cget("font")# 現在のフォント設定を取得
+    font_parts = current_font.rsplit(" ", 1)# フォント名とサイズを分割
+    font_name = font_parts[0] if len(font_parts) > 1 else "Consolas" # デフォルトフォント
+
+    main_memo.config(font=(font_name, size))# フォントサイズを変更
     selected_font_size.set(size) # StringVarを更新
 
 def insert_image():
@@ -235,7 +237,8 @@ def insert_image():
 
         # 画像クリックイベントをバインド
         main_memo.tag_add(image_name, f"insert-1c")
-        main_memo.tag_bind(image_name, "<Button-1>", lambda event, img_path=filepath: show_image_popup(img_path))
+        main_memo.tag_bind(image_name, "<Button-1>", lambda event, img_path=filepath,img_name=image_name: on_image_click(event, img_path, img_name))
+        main_memo.tag_bind(image_name, "<Double-Button-1>", lambda event, img_path=filepath: show_image_popup(img_path))
         main_memo.tag_bind(image_name, "<Button-3>", lambda event, img_name=image_name: show_image_context_menu(event, img_name))
 
         main_memo.tag_bind(image_name, "<Enter>", lambda event: main_memo.config(cursor="hand2"))
@@ -329,7 +332,32 @@ def delete_image(image_name):
         del inserted_images[image_name]
     print(f"画像 '{image_name}' が削除されました。")
 
+def delete_selected_image(selected_image):
+    """選択された画像を削除する関数"""
+    if selected_image!=None:
+        delete_image(selected_image)
+    else:
+        return
 
+def on_image_click(event, img_path, img_name):
+    """画像がクリックされたときの処理 (ハイライト切り替えを含む)"""
+    global selected_image_name_for_highlight
+
+    # まず、現在ハイライトされている画像があれば、そのハイライトを解除
+    if selected_image_name_for_highlight:
+        main_memo.tag_config(selected_image_name_for_highlight, borderwidth=0, relief="flat", background=main_memo.cget("bg")) # 枠と背景色を元に戻す
+        
+    # クリックされた画像が既に選択されていたか、新しい画像かを確認
+    if selected_image_name_for_highlight == img_name:
+        # 同じ画像を再度クリックした場合は、選択解除
+        selected_image_name_for_highlight = None
+    else:
+        # 新しい画像を選択し、ハイライトを適用
+        selected_image_name_for_highlight = img_name
+        # tag_config を使って、その画像タグに枠を設定
+        # padx/pady は Textウィジェットのtag_configではサポートされていないため削除
+        main_memo.tag_config(selected_image_name_for_highlight,
+                             borderwidth=2, relief="solid", background="lightblue") # padx/pady を削除
 
 
 #---GUI---
@@ -366,10 +394,11 @@ edit_menu.add_separator()  # 区切り線
 edit_menu.add_command(label="一つ戻す(Z)", command=put_one_back)
 edit_menu.add_command(label="一つ進める(Y)", command=put_one_forward)
 
-# 「表示」メニューの作成
-view_menu = Menu(menubar, tearoff=0)    
-menubar.add_cascade(label="表示", menu=view_menu)
-view_menu.add_command(label="画面モード", command=lambda: messagebox.showinfo("画面モード", "画面モードの機能はまだ実装されていません。"))
+# 「画像」メニューの作成
+image_menu = Menu(menubar, tearoff=0)
+menubar.add_cascade(label="画像", menu=image_menu)
+image_menu.add_command(label="画像挿入(I)", command=insert_image)
+image_menu.add_command(label="画像を削除", command=lambda: delete_selected_image(selected_image_name_for_highlight))
 
 # 「設定」メニューの作成
 settings_menu = Menu(menubar, tearoff=0)
@@ -401,7 +430,7 @@ form.bind('<Control-q>', lambda event: on_closing())
 text_frame = tk.Frame(form)
 text_frame.pack(expand=True, fill='both')
 
-main_memo = tk.Text(text_frame, bg="white", fg="black", wrap=tk.WORD, font=("Mono", selected_font_size.get()), undo=True)
+main_memo = tk.Text(text_frame, bg="white", fg="black", wrap=tk.WORD, font=("Consolas", selected_font_size.get()), undo=True)
 main_memo.pack(side='left', expand=True, fill='both')
 
 scrollbar = tk.Scrollbar(text_frame, command=main_memo.yview)
