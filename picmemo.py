@@ -356,13 +356,30 @@ def show_image_context_menu(event, image_name):
 
 def delete_image(image_name):
     """画像を削除する関数"""
-    # 画像が挿入されている位置を特定
-    image_index = main_memo.image_cget(image_name, "image")
-    # 画像を削除
-    main_memo.delete(image_index)
-    # inserted_images辞書からエントリを削除
+    global selected_image_name_for_highlight
+
     if image_name in inserted_images:
+        ranges = main_memo.tag_ranges(image_name)
+        
+        if ranges: # タグが適用されている範囲が見つかった場合
+            start_index = ranges[0] # 範囲の開始インデックス
+            end_index = ranges[1]
+            
+            main_memo.delete(start_index, end_index)
+        else:
+            print(f"警告: 画像 '{image_name}' に関連付けられたテキスト範囲が見つかりませんでした。")
+            return
+
+        # inserted_images辞書からエントリを削除
         del inserted_images[image_name]
+    else:
+        print(f"警告: 画像 '{image_name}' は認識されませんでした。")
+        return # 処理を中断
+
+    # 削除された画像が現在ハイライトされている画像だったら、ハイライト状態をリセット
+    if selected_image_name_for_highlight == image_name:
+        selected_image_name_for_highlight = None
+
     print(f"画像 '{image_name}' が削除されました。")
 
 def delete_selected_image(selected_image_name):
