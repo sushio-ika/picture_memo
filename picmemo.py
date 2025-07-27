@@ -1,7 +1,7 @@
 import random
 import tkinter as tk
 from tkinter import Menu, scrolledtext, filedialog, messagebox,ttk
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk,ImageEnhance
 import json
 import os
 
@@ -10,6 +10,9 @@ current_filepath = None  # 現在開いているファイルのパス
 modified = False
 selected_font_size = None  # フォントサイズを保持する変数
 selected_image_name_for_highlight = None  # 現在ハイライトされている画像の名前
+
+HIGHLIGHT_BRIGHTNESS_FACTOR = 0.7 # 0.7倍の明るさに（つまり30%暗く）
+HIGHLIGHT_OPACITY_FACTOR = 0.7 # 0.7倍の不透明度にする（つまり30%透明に）
 
 # --- 関数定義 ---
 def new_file():
@@ -50,7 +53,11 @@ def open_file():
         else:
             change_font_size(12) # デフォルト値
 
-
+        # ファイルを開く前にUndoスタックをリセット
+        main_memo.edit_reset()
+        # Undo機能を一時的に無効にする
+        main_memo.config(undo=False)
+        
         # 読み込んだ要素を順に処理
         for item in loaded_data["content"]:
             if item["type"] == "text":# テキストの場合
@@ -83,11 +90,16 @@ def open_file():
                 else:# 画像ファイルが存在しない場合
                     main_memo.insert(tk.END, f"[画像が見つかりません: {os.path.basename(image_path)}]")
         
+        # Undo機能を再度有効にする
+        main_memo.config(undo=True)
+        # ファイルの内容挿入後にUndoスタックの区切りを設定
+        main_memo.edit_separator()
+
         # 末尾の余計な改行を削除
         content = main_memo.get("1.0", tk.END)
         if content.endswith('\n'):
             main_memo.delete(f'end-2c', 'end')
-
+        current_filepath = filepath
         print("読み込み完了", "ファイルが正常に読み込まれました。")
         form.title(os.path.basename(filepath))
         modified = False  # 編集状態をリセット
@@ -248,6 +260,7 @@ def insert_image():
         messagebox.showerror("エラー", f"画像ファイルの読み込み中にエラーが発生しました: {e}")
 
 def show_image_popup(img_path):
+    """画像を別ウィンドウで拡大表示"""
     try:
         popup = tk.Toplevel(form)
         popup.title("画像の拡大表示")
@@ -255,8 +268,10 @@ def show_image_popup(img_path):
         popup.focus_set()#このウィンドウが開いたときにフォーカスを設定
 
         popup.resizable(False,False)  # ウィンドウのサイズ変更を禁止
-        popup.bind("<FocusOut>", lambda event: popup.destroy())  # フォーカスが外れたら閉じる（元のウィンドウにフォーカスが設定されたとき）
 
+        popup.bind("<FocusOut>", lambda event: popup_close(popup)) 
+        popup.protocol("WM_DELETE_WINDOW", lambda: popup_close(popup))
+        
         img = Image.open(img_path)  # 画像のパスを指定して画像を開く
         # 必要に応じて最大サイズを制限
         max_width, max_height = 800, 600
@@ -277,9 +292,27 @@ def show_image_popup(img_path):
         y = form.winfo_y() + (form.winfo_height() // 2) - (popup.winfo_height() // 2) #元ウィンドウのy座標 + 元ウィンドウの高さの半分 - ポップアップの高さの半分
 
         popup.geometry(f"+{x}+{y}") # サイズは画像によって変わるので、位置だけ設定
-
     except Exception as e:
         messagebox.showerror("エラー", f"画像の拡大表示に失敗しました: {e}")
+
+def popup_close(popup_window):
+    """ポップアップウィンドウが閉じられたときにグローバル変数をクリアし、Text選択を解除する"""
+    global current_popup_photo, current_original_image, current_image_label, current_popup_window, selected_image_name_for_highlight
+    
+    if popup_window and popup_window.winfo_exists():
+        popup_window.destroy()
+        
+    current_popup_photo = None
+    current_original_image = None
+    current_image_label = None
+    current_popup_window = None
+
+    if selected_image_name_for_highlight:
+        apply_image_highlight(selected_image_name_for_highlight, False)
+        selected_image_name_for_highlight = None
+
+    # ここで Textウィジェットの選択範囲をクリア
+    main_memo.tag_remove(tk.SEL, "1.0", tk.END)
 
 def put_one_back():
     """操作を1つ戻す"""
@@ -332,12 +365,71 @@ def delete_image(image_name):
         del inserted_images[image_name]
     print(f"画像 '{image_name}' が削除されました。")
 
-def delete_selected_image(selected_image):
+def delete_selected_image(selected_image_name):
     """選択された画像を削除する関数"""
-    if selected_image!=None:
-        delete_image(selected_image)
+    if selected_image_name:
+        delete_image(selected_image_name)
     else:
+        messagebox.showinfo("情報", "削除する画像が選択されていません。")
+
+def apply_image_highlight(image_name, highlight_on):
+    """画像にハイライトを適用または解除する関数"""
+    # 画像が挿入されているか確認
+    if image_name not in inserted_images:
         return
+
+    img_info = inserted_images[image_name]
+    original_pil_image = img_info.get("original_pil_image")
+    image_path = img_info.get("path") # パスも必要（リサイズ情報を得るため）
+
+    if original_pil_image is None:
+        # オリジナルPIL画像が保存されていない場合は再読み込み
+        try:
+            original_pil_image = Image.open(image_path)
+            inserted_images[image_name]["original_pil_image"] = original_pil_image
+        except Exception as e:
+            print(f"オリジナル画像の再読み込みに失敗しました: {e}")
+            return
+
+    # 現在の表示サイズを取得（挿入時のリサイズサイズ）
+    # Textウィジェットから直接取得できないため、挿入時のwidthを再利用
+    display_width = 300
+    display_height = int(original_pil_image.height * display_width / original_pil_image.width)
+    
+    if highlight_on:
+        # 画像をリサイズしてから透明度を調整
+        temp_image = original_pil_image.resize((display_width, display_height), Image.Resampling.LANCZOS)
+        
+        # 明るさを調整 (ImageEnhance.Brightness を使用)
+        enhancer = ImageEnhance.Brightness(temp_image)
+        brightened_image = enhancer.enhance(HIGHLIGHT_BRIGHTNESS_FACTOR)
+
+        # アルファチャンネルを追加または調整して透明度を表現
+        # 画像にアルファチャンネルがない場合は追加
+        if brightened_image.mode != 'RGBA':
+            brightened_image = brightened_image.convert('RGBA')
+        
+        # 半透明の白（または任意の色）と画像をブレンド
+        # これにより、画像を薄く見せる
+        alpha = int(255 * HIGHLIGHT_OPACITY_FACTOR) # 不透明度を設定
+        white_layer = Image.new('RGBA', brightened_image.size, (255, 255, 255, 255 - alpha)) # 透明度に応じて白を重ねる
+        
+        # blend関数で合成 (画像と白いレイヤーを混ぜる)
+        # alphaが1.0だと全て画像、0.0だと全て白レイヤーになる
+        blended_image = Image.blend(brightened_image, white_layer, alpha=(1.0 - HIGHLIGHT_OPACITY_FACTOR)) # 不透明度に応じてブレンド比を調整
+        
+        final_image = blended_image
+        
+    else:
+        # ハイライト解除時は元の画像（リサイズ済み）に戻す
+        final_image = original_pil_image.resize((display_width, display_height), Image.Resampling.LANCZOS)
+
+    new_photo = ImageTk.PhotoImage(final_image)
+
+    # Textウィジェットの画像アイテムを更新
+    # main_memo.image_configure は、image_createで返された名前に対して使用
+    main_memo.image_configure(image_name, image=new_photo)
+    inserted_images[image_name]["photo"] = new_photo # PhotoImage参照を更新
 
 def on_image_click(event, img_path, img_name):
     """画像がクリックされたときの処理 (ハイライト切り替えを含む)"""
@@ -345,8 +437,8 @@ def on_image_click(event, img_path, img_name):
 
     # まず、現在ハイライトされている画像があれば、そのハイライトを解除
     if selected_image_name_for_highlight:
-        main_memo.tag_config(selected_image_name_for_highlight, borderwidth=0, relief="flat", background=main_memo.cget("bg")) # 枠と背景色を元に戻す
-        
+        apply_image_highlight(selected_image_name_for_highlight, False) # ハイライト解除
+
     # クリックされた画像が既に選択されていたか、新しい画像かを確認
     if selected_image_name_for_highlight == img_name:
         # 同じ画像を再度クリックした場合は、選択解除
@@ -354,10 +446,23 @@ def on_image_click(event, img_path, img_name):
     else:
         # 新しい画像を選択し、ハイライトを適用
         selected_image_name_for_highlight = img_name
-        # tag_config を使って、その画像タグに枠を設定
-        # padx/pady は Textウィジェットのtag_configではサポートされていないため削除
-        main_memo.tag_config(selected_image_name_for_highlight,
-                             borderwidth=2, relief="solid", background="lightblue") # padx/pady を削除
+        apply_image_highlight(selected_image_name_for_highlight, True) # ハイライト適用
+
+def on_main_memo_click(event):
+    """テキストがクリックされたときの処理"""
+    global selected_image_name_for_highlight
+
+    # クリックされた場所が画像の上かどうかを判断
+    click_point = main_memo.tag_names(f"@{event.x},{event.y}")
+
+    # 現在ハイライトされている画像がある場合
+    if selected_image_name_for_highlight:
+        # もしクリックされた位置に、現在ハイライトされている画像のタグが含まれていなければ、ハイライトを解除
+        if selected_image_name_for_highlight not in click_point:
+            apply_image_highlight(selected_image_name_for_highlight, False)
+            selected_image_name_for_highlight = None
+            main_memo.config(cursor="xterm")
+
 
 
 #---GUI---
@@ -426,6 +531,7 @@ form.bind('<Control-i>', lambda event: insert_image())
 form.bind('<Control-z>', lambda event: put_one_back())
 form.bind('<Control-y>', lambda event: put_one_forward())
 form.bind('<Control-q>', lambda event: on_closing())
+form.bind('<Control-d>', lambda event: delete_selected_image(selected_image_name_for_highlight))
 
 text_frame = tk.Frame(form)
 text_frame.pack(expand=True, fill='both')
@@ -438,7 +544,7 @@ scrollbar.pack(side='right', fill='y')
 main_memo.config(yscrollcommand=scrollbar.set)
 
 main_memo.bind('<<Modified>>', func_modified)
-
+main_memo.bind("<Button-1>", on_main_memo_click)
 
 #ウィンドウを中央に配置
 form.update_idletasks()
