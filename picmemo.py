@@ -17,9 +17,17 @@ HIGHLIGHT_OPACITY_FACTOR = 0.7 # 0.7倍の不透明度にする（つまり30%�
 # --- 関数定義 ---
 def new_file():
     """新規ファイルを作成"""
-    global current_filepath
+    global current_filepath,modified
+
+    if modified: # 変更があった場合のみ確認
+        result = messagebox.askyesnocancel("確認", "現在の変更内容を保存しますか？")
+        if result is None: # キャンセルが選択された場合
+            return # 処理を中断
+        elif result: # はいが選択された場合
+            save_file(overwrite=True) # 上書き保存を実行
 
     main_memo.delete(1.0, tk.END)
+    main_memo.edit_modified(False)
     form.title("ピクメモ")
     current_filepath = None  # 新規作成なのでパスはクリア
 
@@ -28,7 +36,8 @@ def new_file():
 
 def open_file():
     """ファイルを開く"""
-    global current_filepath
+    global current_filepath,modified
+    
     filepath = filedialog.askopenfilename(
         defaultextension=".json",
         filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
@@ -40,6 +49,14 @@ def open_file():
     current_filepath = filepath # ファイルパスを更新
 
     try:
+        if modified: # change_memoがTrueの場合
+            result = messagebox.askyesnocancel("確認", "変更内容を保存しますか？")
+            if result is None:  # キャンセルが選択された場合
+                #元のファイルに戻る
+                return
+            elif result:  # はいが選択された場合
+                save_file(overwrite=True)
+
         # 既存の内容をクリア
         main_memo.delete(1.0, tk.END)
         # 画像参照をクリア
@@ -94,11 +111,13 @@ def open_file():
         main_memo.config(undo=True)
         # ファイルの内容挿入後にUndoスタックの区切りを設定
         main_memo.edit_separator()
+        main_memo.edit_modified(False)
 
         # 末尾の余計な改行を削除
         content = main_memo.get("1.0", tk.END)
         if content.endswith('\n'):
             main_memo.delete(f'end-2c', 'end')
+
         current_filepath = filepath
         print("読み込み完了", "ファイルが正常に読み込まれました。")
         form.title(os.path.basename(filepath))
@@ -165,14 +184,17 @@ def save_file(overwrite=False):
 def cut_text():
     """テキストを切り取り"""
     main_memo.event_generate("<<Cut>>")
+    modified=True
 
 def copy_text():
     """テキストをコピー"""
     main_memo.event_generate("<<Copy>>")
+    modified=True
 
 def paste_text():
     """テキストを貼り付け"""
     main_memo.event_generate("<<Paste>>")
+    modified=True
 
 def show_about():
     """アプリケーション情報を表示"""
@@ -202,8 +224,8 @@ def show_version():
     """バージョン情報を表示"""
     messagebox.showinfo(
         "バージョン情報",
-        "バージョン:\t1.0.1\n"
-        "更新日:\t2025/07/23\n"
+        "バージョン:\t1.0.2\n"
+        "更新日:\t2025/07/27\n"
     )
 
 def change_font_size(size):
@@ -256,6 +278,7 @@ def insert_image():
         main_memo.tag_bind(image_name, "<Enter>", lambda event: main_memo.config(cursor="hand2"))
         main_memo.tag_bind(image_name, "<Leave>", lambda event: main_memo.config(cursor="xterm"))
 
+        modified=True
     except Exception as e:
         messagebox.showerror("エラー", f"画像ファイルの読み込み中にエラーが発生しました: {e}")
 
@@ -331,10 +354,8 @@ def put_one_forward():
 def func_modified(event=None):
     """main_memoの編集状態が変更されたときに呼び出される関数"""
     global modified
-    if main_memo.edit_modified():# 編集が行われた場合
+    if main_memo.edit_modified():
         modified = True
-    else:# 編集が行われていない場合
-        modified = False
 
 def on_closing():
     """アプリケーションを閉じる前に確認"""
