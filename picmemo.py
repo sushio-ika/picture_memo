@@ -15,6 +15,7 @@ HIGHLIGHT_BRIGHTNESS_FACTOR = 0.7 # 0.7倍の明るさに（つまり30%暗く�
 HIGHLIGHT_OPACITY_FACTOR = 0.7 # 0.7倍の不透明度にする（つまり30%透明に）
 
 # --- 関数定義 ---
+#ファイル編集系
 def new_file():
     """新規ファイルを作成"""
     global current_filepath,modified
@@ -111,17 +112,19 @@ def open_file():
         main_memo.config(undo=True)
         # ファイルの内容挿入後にUndoスタックの区切りを設定
         main_memo.edit_separator()
-        main_memo.edit_modified(False)
 
         # 末尾の余計な改行を削除
-        content = main_memo.get("1.0", tk.END)
-        if content.endswith('\n'):
-            main_memo.delete(f'end-2c', 'end')
+        content_after_load = main_memo.get("1.0", tk.END)
+        if content_after_load.endswith('\n\n'):
+            main_memo.delete("end-2c", tk.END)
+        
+        modified = False  # 編集状態をリセット
+        main_memo.update_idletasks() 
+        main_memo.edit_modified(False) # Tkinterのmodifiedフラグもリセット
 
         current_filepath = filepath
-        print("読み込み完了", "ファイルが正常に読み込まれました。")
         form.title(os.path.basename(filepath))
-        modified = False  # 編集状態をリセット
+        print("読み込み完了", "ファイルが正常に読み込まれました。")
 
     except Exception as e:
         print("エラー", f"ファイルの読み込み中にエラーが発生しました: {e}")
@@ -181,6 +184,70 @@ def save_file(overwrite=False):
     except Exception as e:
         print("エラー", f"ファイルの保存中にエラーが発生しました: {e}")
 
+def put_one_back():
+    """操作を1つ戻す"""
+    try:
+        main_memo.edit_undo()
+    except tk.TclError:
+        print("警告", "これ以上戻すことができません。")
+
+def put_one_forward():
+    """操作を1つ進める"""
+    try:
+        main_memo.edit_redo()
+    except tk.TclError:
+        print("警告", "これ以上進めることができません。")
+
+def func_modified(event=None):
+    """main_memoの編集状態が変更されたときに呼び出される関数"""
+    global modified
+    is_tk_modified = main_memo.edit_modified()
+    
+    print(f"DEBUG: <<Modified>> event received. Tkinter modified: {is_tk_modified}, App modified: {modified}")
+
+    if is_tk_modified:
+        # Tkinterが変更済みと判断した場合、アプリケーションのフラグもTrueにする
+        modified = True
+    else:
+        # Tkinterが未変更と判断した場合、アプリケーションのフラグもFalseにする（これは通常、edit_modified(False)が明示的に呼ばれた後）
+        modified = False
+
+def on_closing():
+    """アプリケーションを閉じる前に確認"""
+    global modified
+    if modified: # change_memoがTrueの場合
+        result = messagebox.askyesnocancel("確認", "変更内容を保存しますか？")
+        if result is None:  # キャンセルが選択された場合
+            return
+        elif result:  # はいが選択された場合
+            save_file(overwrite=True)
+    form.destroy()  # はいまたはいいえが選択された場合、アプリケーションを終了
+
+def change_font_size(size):
+    """メインメモのフォントサイズを変更する"""
+    current_font = main_memo.cget("font")# 現在のフォント設定を取得
+    font_parts = current_font.rsplit(" ", 1)# フォント名とサイズを分割
+    font_name = font_parts[0] if len(font_parts) > 1 else "Consolas" # デフォルトフォント
+
+    main_memo.config(font=(font_name, size))# フォントサイズを変更
+    selected_font_size.set(size) # StringVarを更新
+
+def on_main_memo_click(event):
+    """テキストがクリックされたときの処理"""
+    global selected_image_name_for_highlight
+
+    # クリックされた場所が画像の上かどうかを判断
+    click_point = main_memo.tag_names(f"@{event.x},{event.y}")
+
+    # 現在ハイライトされている画像がある場合
+    if selected_image_name_for_highlight:
+        # もしクリックされた位置に、現在ハイライトされている画像のタグが含まれていなければ、ハイライトを解除
+        if selected_image_name_for_highlight not in click_point:
+            apply_image_highlight(selected_image_name_for_highlight, False)
+            selected_image_name_for_highlight = None
+            main_memo.config(cursor="xterm")
+
+#文字列編集系
 def cut_text():
     """テキストを切り取り"""
     main_memo.event_generate("<<Cut>>")
@@ -196,47 +263,7 @@ def paste_text():
     main_memo.event_generate("<<Paste>>")
     modified=True
 
-def show_about():
-    """アプリケーション情報を表示"""
-    messagebox.showinfo(
-        "ピクメモについて",
-        "画像を挿入できるメモ帳アプリケーションです。\n"
-        "Python と tkinter で作成しました。\n"
-    )
-
-def show_how_to_use():
-    """使い方を表示"""
-    messagebox.showinfo(
-        "ショートカットキー",
-        "各ボタンに書いてあるキーをCtrlキーと一緒に押すことで、\n"
-        "同じ操作を行うことができます。"
-        "\n\n"
-        "新規作成: \tCtrl + N\n"
-        "開く: \t\tCtrl + O\n"
-        "上書き保存: \tCtrl + S\n"
-        "画像挿入: \tCtrl + I\n"
-        "一つ戻す: \t\tCtrl + Z\n"
-        "一つ進める: \tCtrl + Y\n"
-        "終了: \t\tCtrl + Q\n"
-    )
-
-def show_version():
-    """バージョン情報を表示"""
-    messagebox.showinfo(
-        "バージョン情報",
-        "バージョン:\t1.0.2\n"
-        "更新日:\t2025/07/27\n"
-    )
-
-def change_font_size(size):
-    """メインメモのフォントサイズを変更する"""
-    current_font = main_memo.cget("font")# 現在のフォント設定を取得
-    font_parts = current_font.rsplit(" ", 1)# フォント名とサイズを分割
-    font_name = font_parts[0] if len(font_parts) > 1 else "Consolas" # デフォルトフォント
-
-    main_memo.config(font=(font_name, size))# フォントサイズを変更
-    selected_font_size.set(size) # StringVarを更新
-
+#画像系
 def insert_image():
     """画像を挿入"""
     global inserted_images
@@ -337,37 +364,6 @@ def popup_close(popup_window):
     # ここで Textウィジェットの選択範囲をクリア
     main_memo.tag_remove(tk.SEL, "1.0", tk.END)
 
-def put_one_back():
-    """操作を1つ戻す"""
-    try:
-        main_memo.edit_undo()
-    except tk.TclError:
-        print("警告", "これ以上戻すことができません。")
-
-def put_one_forward():
-    """操作を1つ進める"""
-    try:
-        main_memo.edit_redo()
-    except tk.TclError:
-        print("警告", "これ以上進めることができません。")
-
-def func_modified(event=None):
-    """main_memoの編集状態が変更されたときに呼び出される関数"""
-    global modified
-    if main_memo.edit_modified():
-        modified = True
-
-def on_closing():
-    """アプリケーションを閉じる前に確認"""
-    global modified
-    if modified: # change_memoがTrueの場合
-        result = messagebox.askyesnocancel("確認", "変更内容を保存しますか？")
-        if result is None:  # キャンセルが選択された場合
-            return
-        elif result:  # はいが選択された場合
-            save_file(overwrite=True)
-    form.destroy()  # はいまたはいいえが選択された場合、アプリケーションを終了
-
 def show_image_context_menu(event, image_name):
     """画像を右クリックしたときに表示されるコンテキストメニュー"""
     context_menu = tk.Menu(form, tearoff=0)
@@ -409,6 +405,23 @@ def delete_selected_image(selected_image_name):
         delete_image(selected_image_name)
     else:
         messagebox.showinfo("情報", "削除する画像が選択されていません。")
+
+def on_image_click(event, img_path, img_name):
+    """画像がクリックされたときの処理 (ハイライト切り替えを含む)"""
+    global selected_image_name_for_highlight
+
+    # まず、現在ハイライトされている画像があれば、そのハイライトを解除
+    if selected_image_name_for_highlight:
+        apply_image_highlight(selected_image_name_for_highlight, False) # ハイライト解除
+
+    # クリックされた画像が既に選択されていたか、新しい画像かを確認
+    if selected_image_name_for_highlight == img_name:
+        # 同じ画像を再度クリックした場合は、選択解除
+        selected_image_name_for_highlight = None
+    else:
+        # 新しい画像を選択し、ハイライトを適用
+        selected_image_name_for_highlight = img_name
+        apply_image_highlight(selected_image_name_for_highlight, True) # ハイライト適用
 
 def apply_image_highlight(image_name, highlight_on):
     """画像にハイライトを適用または解除する関数"""
@@ -469,37 +482,40 @@ def apply_image_highlight(image_name, highlight_on):
     main_memo.image_configure(image_name, image=new_photo)
     inserted_images[image_name]["photo"] = new_photo # PhotoImage参照を更新
 
-def on_image_click(event, img_path, img_name):
-    """画像がクリックされたときの処理 (ハイライト切り替えを含む)"""
-    global selected_image_name_for_highlight
+#ヘルプメッセージ系
+def show_about():
+    """アプリケーション情報を表示"""
+    messagebox.showinfo(
+        "ピクメモについて",
+        "画像を挿入できるメモ帳アプリケーションです。\n"
+        "Python と tkinter で作成しました。\n"
+    )
 
-    # まず、現在ハイライトされている画像があれば、そのハイライトを解除
-    if selected_image_name_for_highlight:
-        apply_image_highlight(selected_image_name_for_highlight, False) # ハイライト解除
+def show_how_to_use():
+    """使い方を表示"""
+    messagebox.showinfo(
+        "ショートカットキー",
+        "各ボタンに書いてあるキーをCtrlキーと一緒に押すことで、\n"
+        "同じ操作を行うことができます。"
+        "\n\n"
+        "新規作成: \tCtrl + N\n"
+        "開く: \t\tCtrl + O\n"
+        "上書き保存: \tCtrl + S\n"
+        "画像挿入: \tCtrl + I\n"
+        "一つ戻す: \t\tCtrl + Z\n"
+        "一つ進める: \tCtrl + Y\n"
+        "終了: \t\tCtrl + Q\n"
+    )
 
-    # クリックされた画像が既に選択されていたか、新しい画像かを確認
-    if selected_image_name_for_highlight == img_name:
-        # 同じ画像を再度クリックした場合は、選択解除
-        selected_image_name_for_highlight = None
-    else:
-        # 新しい画像を選択し、ハイライトを適用
-        selected_image_name_for_highlight = img_name
-        apply_image_highlight(selected_image_name_for_highlight, True) # ハイライト適用
+def show_version():
+    """バージョン情報を表示"""
+    messagebox.showinfo(
+        "バージョン情報",
+        "バージョン:\t1.0.2\n"
+        "更新日:\t2025/07/27\n"
+    )
 
-def on_main_memo_click(event):
-    """テキストがクリックされたときの処理"""
-    global selected_image_name_for_highlight
 
-    # クリックされた場所が画像の上かどうかを判断
-    click_point = main_memo.tag_names(f"@{event.x},{event.y}")
-
-    # 現在ハイライトされている画像がある場合
-    if selected_image_name_for_highlight:
-        # もしクリックされた位置に、現在ハイライトされている画像のタグが含まれていなければ、ハイライトを解除
-        if selected_image_name_for_highlight not in click_point:
-            apply_image_highlight(selected_image_name_for_highlight, False)
-            selected_image_name_for_highlight = None
-            main_memo.config(cursor="xterm")
 
 
 
@@ -563,7 +579,7 @@ help_menu.add_command(label="ショートカットキー", command=show_how_to_u
 help_menu.add_command(label="バージョン情報", command=show_version)
 
 form.bind('<Control-n>', lambda event: new_file())
-form.bind('<Control-o>', lambda event: open_file())
+form.bind('<Control-p>', lambda event: open_file())
 form.bind('<Control-s>', lambda event: save_file(overwrite=True))
 form.bind('<Control-i>', lambda event: insert_image())
 form.bind('<Control-z>', lambda event: put_one_back())
