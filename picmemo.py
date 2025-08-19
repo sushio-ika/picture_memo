@@ -23,6 +23,7 @@ HIGHLIGHT_BRIGHTNESS_FACTOR = 0.7#明るさ倍率
 HIGHLIGHT_OPACITY_FACTOR = 0.7#透明度倍率
 
 PICTURE_WIDTH = 300#画像の横幅を固定
+DEFAULT_FONT_SIZE = 12#デフォルトのフォントサイズ
 
 # --- 関数定義 ---
 #ファイル編集系
@@ -79,7 +80,7 @@ def open_file():
         if "font_size" in loaded_data:#フォントサイズが指定されている場合
             change_defaultfont_size(loaded_data["font_size"])
         else:
-            change_defaultfont_size(12)#デフォルトサイズ
+            change_defaultfont_size(DEFAULT_FONT_SIZE)#デフォルトサイズ
         
         main_memo.edit_reset()
         main_memo.config(undo=False)#Undo機能を一時的に無効にする（ファイル内容のテキストや画像を挿入していく操作が変更と判定されてしまうため）
@@ -91,12 +92,17 @@ def open_file():
                 if "tags" in item:
                     #タグ設定を再構成して適用
                     tags_to_apply = []
-                    for tag_name in item["tags"]:
-                        if tag_name.startswith("color_"):
-                            color_code = f"#{tag_name.split('_')[1]}"
+                    for tag_name, tag_config in item["tags"].items():#tagsアイテムのタグを順に処理
+
+                        if tag_name.startswith("color_"):#カラーコードタグの場合
+                            color_code = tag_config["foreground"]
                             main_memo.tag_configure(tag_name, foreground=color_code)
                             tags_to_apply.append(tag_name)
-                    
+                        elif tag_name.startswith("font_"):#フォントサイズタグの場合
+                            font_size = int(tag_config["font-size"].replace("pt", ""))
+                            main_memo.tag_configure(tag_name, font=("Consolas", font_size))
+                            tags_to_apply.append(tag_name)
+
                     if tags_to_apply:
                         main_memo.insert(tk.END, item["content"], tags_to_apply)
                     else:
@@ -182,22 +188,28 @@ def save_file(overwrite=False):
 
         #ファイル内容をすべて取得
         dump = main_memo.dump("1.0", tk.END, image=True, text=True, tag=True)
-        
+
         current_text_chunk = ""
         current_tags_config = {}
         
+
         for item_type, tag_name, index in dump:
             #テキストの場合
             if item_type == "text":
                 current_text_chunk += tag_name
             #タグの場合
             elif item_type == "tagon":#タグ開始
-                if tag_name.startswith("color_"):
+
+                if tag_name.startswith("color_"):#カラーコードタグの場合
                     color_code = f"#{tag_name.split('_')[1]}"
                     current_tags_config[tag_name] = {"foreground": color_code}
+                elif tag_name.startswith("font_"):#フォントサイズタグの場合
+                    font_size = tag_name.split('_')[1]
+                    current_tags_config[tag_name] = {"font-size": font_size}
+
             elif item_type == "tagoff":#タグ終了
-                if tag_name in current_tags_config:
-                    if current_text_chunk:
+                if tag_name in current_tags_config:#タグが存在する場合
+                    if current_text_chunk:#現在のテキストチャンクが空でない場合
                         data_to_save.append({"type": "text", "content": current_text_chunk, "tags": current_tags_config.copy()})
                         current_text_chunk = ""
                     del current_tags_config[tag_name]
@@ -212,6 +224,9 @@ def save_file(overwrite=False):
                     data_to_save.append({"type": "image", "path": image_info["path"]})
                 else:
                     messagebox.showwarning("警告", f"画像情報が見つかりません: {tag_name}")
+            #その他のアイテムタイプ
+            else:
+                messagebox.showwarning("警告", f"未知のアイテムタイプ: {item_type}")
 
         if current_text_chunk:
             data_to_save.append({"type": "text", "content": current_text_chunk, "tags": current_tags_config.copy()})
@@ -549,6 +564,31 @@ def show_about():
 def show_how_to_use():
     """使い方を表示"""
     messagebox.showinfo(
+        "使い方",
+        "メニューバーの機能紹介\n\n"
+        "「ファイルメニュー」\n"
+        "新規作成\t\t新しいメモを作成します。\n"
+        "開く\t\t既存のメモファイルを開きます。\n"
+        "名前を付けて保存\tメモ内容を新しいファイル名で保存します。\n"
+        "上書き保存\t現在のメモ内容を保存します。\n"
+        "終了\t\tアプリケーションを終了します。\n\n"
+        "「編集メニュー」\n"
+        "切り取り\t\t選択したテキストを切り取ります。\n"
+        "コピー\t\t選択したテキストをコピーします。\n"
+        "貼り付け\t\tクリップボードの内容を貼り付けます。\n"
+        "一つ戻す\t\t最後の操作を取り消します。\n"
+        "一つ進める\t\t戻した操作を再実行します。\n\n"
+        "「画像・フォントメニュー」\n"
+        "画像挿入\t\tメモに画像を挿入できます。\n"
+        "画像削除\t\t選択した画像を削除します。\n\n"
+        "フォントサイズ\t選択したテキストのフォントサイズを変更します。\n"
+        "文字色\t\t選択したテキストの色を変更します。\n\n"
+        "画像はクリックで選択、ダブルクリックで拡大表示できます。"
+    )
+
+def show_shortcut_keys():
+    """ショートカットキーを表示"""
+    messagebox.showinfo(
         "ショートカットキー",
         "各ボタンに書いてあるキーをCtrlキーと一緒に押すことで、\n"
         "同じ操作を行うことができます。"
@@ -599,24 +639,24 @@ def change_font_size(size):
         start_index = main_memo.index(tk.SEL_FIRST)
         end_index = main_memo.index(tk.SEL_LAST)
         
-        # 既存のフォントサイズタグをすべて削除
+        #既存のフォントサイズタグをすべて削除
         for tag_name in main_memo.tag_names():
             if tag_name.startswith("font_"):
                 main_memo.tag_remove(tag_name, start_index, end_index)
         
-        # 動的なタグ名を生成
+        #動的なタグ名を生成
         new_tag = f"font_{size}pt"
         
-        # 新しいフォントオブジェクトを作成
+        #新しいフォントオブジェクトを作成
         font_family = main_memo.cget("font").split(" ")[0]
         new_font = tkFont.Font(family=font_family, size=size)
-        
-        # 新しいタグを設定して選択範囲に適用
+
+        #新しいタグを設定して選択範囲に適用
         main_memo.tag_configure(new_tag, font=new_font)
         main_memo.tag_add(new_tag, start_index, end_index)
         
     except tk.TclError:
-        # 選択範囲がない場合、デフォルトフォントを変更
+        #選択範囲がない場合、デフォルトフォントを変更
         change_font_size(size)
 
     
@@ -630,7 +670,7 @@ form.minsize(1000,560)
 form.protocol("WM_DELETE_WINDOW", on_closing)
 
 selected_font_size = tk.IntVar()# フォントサイズを保持する変数
-selected_font_size.set(12)  # 初期フォントサイズを12ptに設定
+selected_font_size.set(DEFAULT_FONT_SIZE)  # 初期フォントサイズをデフォルト値に設定
 
 #メニューバーの作成
 menubar=Menu(form)
@@ -652,16 +692,21 @@ menubar.add_cascade(label="編集", menu=edit_menu)
 edit_menu.add_command(label="切り取り(X)", command=cut_text)
 edit_menu.add_command(label="コピー(C)", command=copy_text)
 edit_menu.add_command(label="貼り付け(V)", command=paste_text)
-edit_menu.add_command(label="画像挿入(I)", command=insert_image)
 edit_menu.add_separator()  # 区切り線
 edit_menu.add_command(label="一つ戻す(Z)", command=put_one_back)
 edit_menu.add_command(label="一つ進める(Y)", command=put_one_forward)
 
-#画像メニュー
+#画像・フォントメニュー
 image_menu = Menu(menubar, tearoff=0)
-menubar.add_cascade(label="画像", menu=image_menu)
+menubar.add_cascade(label="画像・フォント", menu=image_menu)
 image_menu.add_command(label="画像挿入(I)", command=insert_image)
-image_menu.add_command(label="画像を削除", command=lambda: delete_selected_image(selected_image_name_for_highlight))
+image_menu.add_command(label="画像を削除(D)", command=lambda: delete_selected_image(selected_image_name_for_highlight))
+image_menu.add_separator()  # 区切り線
+image_menu.add_command(label="文字色", command=change_font_color)
+font_size_menu = Menu(image_menu, tearoff=0)
+image_menu.add_cascade(label="フォントサイズ", menu=font_size_menu)
+for size in [10, 12, 14, 16, 18]:
+    font_size_menu.add_radiobutton(label=f"{size}pt", command=lambda: change_font_size(size), variable=selected_font_size, value=size)
 
 #設定メニュー
 settings_menu = Menu(menubar, tearoff=0)
@@ -670,33 +715,17 @@ window_menu = Menu(settings_menu, tearoff=0)
 settings_menu.add_cascade(label="ウィンドウ設定", menu=window_menu)
 font_menu = Menu(window_menu, tearoff=0)
 window_menu.add_cascade(label="デフォルトフォント", menu=font_menu)
-font_menu.add_radiobutton(label="小 (10pt)", command=lambda: change_defaultfont_size(10), variable=selected_font_size, value=10)
-font_menu.add_radiobutton(label="中 (12pt)", command=lambda: change_defaultfont_size(12), variable=selected_font_size, value=12)
-font_menu.add_radiobutton(label="大 (14pt)", command=lambda: change_defaultfont_size(14), variable=selected_font_size, value=14)
-font_menu.add_radiobutton(label="特大 (16pt)", command=lambda: change_defaultfont_size(16), variable=selected_font_size, value=16)
-font_menu.add_radiobutton(label="特特大 (18pt)", command=lambda: change_defaultfont_size(18), variable=selected_font_size, value=18)
+for size in [10, 12, 14, 16, 18]:
+    font_menu.add_radiobutton(label=f"{size}pt", command=lambda: change_defaultfont_size(size), variable=selected_font_size, value=size)
 settings_menu.add_command(label="テーマ設定", command=lambda: messagebox.showinfo("テーマ設定", "テーマ設定の機能はまだ実装されていません。"))
 
 #ヘルプメニュー
 help_menu = Menu(menubar, tearoff=0)
 menubar.add_cascade(label="ヘルプ", menu=help_menu)
 help_menu.add_command(label="ピクメモについて", command=show_about)
-help_menu.add_command(label="ショートカットキー", command=show_how_to_use)
+help_menu.add_command(label="使い方", command=show_how_to_use)
+help_menu.add_command(label="ショートカットキー", command=show_shortcut_keys)
 help_menu.add_command(label="バージョン情報", command=show_version)
-
-#フォントごとの設定
-font_settings_menu = Menu(menubar, tearoff=0)
-menubar.add_cascade(label="フォント設定", menu=font_settings_menu)
-font_settings_menu.add_command(label="文字色", command=change_font_color)
-font_size_menu = Menu(font_settings_menu, tearoff=0)
-font_settings_menu.add_cascade(label="フォントサイズ", menu=font_size_menu)
-
-# フォントサイズを選択するためのコマンドを追加
-for size in [10, 12, 14, 16, 18]:
-    font_size_menu.add_command(
-        label=f"{size}pt",
-        command=lambda s=size: change_font_size(s)
-    )
 
 #ショートカットキー設定
 form.bind('<Control-n>', lambda event: new_file())
