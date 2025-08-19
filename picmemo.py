@@ -3,6 +3,13 @@ from tkinter import Menu, filedialog, messagebox, colorchooser
 from PIL import Image, ImageTk,ImageEnhance
 import json
 import os
+import tkinter.font as tkFont
+
+try:
+    from ctypes import windll
+    windll.shcore.SetProcessDpiAwareness(1)
+except:
+    pass
 
 inserted_images = {}
 current_filepath = None#現在開いているファイルのパス
@@ -37,7 +44,7 @@ def new_file():
     current_filepath = None#新規作成なのでパスはクリア
 
     main_memo.config(foreground=default_font_color)
-    change_font_size(12)#デフォルトのフォントサイズに設定
+    change_defaultfont_size(12)#デフォルトのフォントサイズに設定
     main_memo.focus_set()#カーソルを自動でセット
     modified = False#編集状態をリセット
 
@@ -69,13 +76,10 @@ def open_file():
         with open(current_filepath, "r", encoding="utf-8") as f:
             loaded_data = json.load(f)
         
-        main_memo.config(foreground=default_font_color)#デフォルトの文字色を設定
-
         if "font_size" in loaded_data:#フォントサイズが指定されている場合
-            change_font_size(loaded_data["font_size"])
+            change_defaultfont_size(loaded_data["font_size"])
         else:
-            change_font_size(12)#デフォルトサイズ
-
+            change_defaultfont_size(12)#デフォルトサイズ
         
         main_memo.edit_reset()
         main_memo.config(undo=False)#Undo機能を一時的に無効にする（ファイル内容のテキストや画像を挿入していく操作が変更と判定されてしまうため）
@@ -84,7 +88,21 @@ def open_file():
         for item in loaded_data["content"]:
             #テキストの場合
             if item["type"] == "text":
-                main_memo.insert(tk.END, item["content"])
+                if "tags" in item:
+                    #タグ設定を再構成して適用
+                    tags_to_apply = []
+                    for tag_name in item["tags"]:
+                        if tag_name.startswith("color_"):
+                            color_code = f"#{tag_name.split('_')[1]}"
+                            main_memo.tag_configure(tag_name, foreground=color_code)
+                            tags_to_apply.append(tag_name)
+                    
+                    if tags_to_apply:
+                        main_memo.insert(tk.END, item["content"], tags_to_apply)
+                    else:
+                        main_memo.insert(tk.END, item["content"])
+                else:
+                    main_memo.insert(tk.END, item["content"])
             #画像の場合
             elif item["type"] == "image":
                 image_path = item["path"]#画像のパスを取得
@@ -140,7 +158,7 @@ def open_file():
 
 def save_file(overwrite=False):
     """ファイルを保存"""
-    global current_filepath
+    global current_filepath, modified
 
     #上書き保存か名前を付けて保存（current_filepathの中身が存在しているかどうか）
     if overwrite and current_filepath:
@@ -153,6 +171,7 @@ def save_file(overwrite=False):
             filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
         )
 
+        #ファイルパスが空の場合は保存しない
         if not filepath:
             return
         
@@ -161,27 +180,41 @@ def save_file(overwrite=False):
     try:
         data_to_save = []
 
-        #ファイルの最初から最後まで
-        start_index = "1.0"
-        end_index = main_memo.index(tk.END)
-
-        dump = main_memo.dump(start_index, end_index, image=True, text=True)#ファイル内容をすべて取得
-        for i in range(len(dump)):
-            tag = dump[i][0]
-            
+        #ファイル内容をすべて取得
+        dump = main_memo.dump("1.0", tk.END, image=True, text=True, tag=True)
+        
+        current_text_chunk = ""
+        current_tags_config = {}
+        
+        for item_type, tag_name, index in dump:
             #テキストの場合
-            if tag == "text":
-                text = dump[i][1]
-                if text:
-                    data_to_save.append({"type": "text", "content": text})
+            if item_type == "text":
+                current_text_chunk += tag_name
+            #タグの場合
+            elif item_type == "tagon":#タグ開始
+                if tag_name.startswith("color_"):
+                    color_code = f"#{tag_name.split('_')[1]}"
+                    current_tags_config[tag_name] = {"foreground": color_code}
+            elif item_type == "tagoff":#タグ終了
+                if tag_name in current_tags_config:
+                    if current_text_chunk:
+                        data_to_save.append({"type": "text", "content": current_text_chunk, "tags": current_tags_config.copy()})
+                        current_text_chunk = ""
+                    del current_tags_config[tag_name]
             #画像の場合
-            elif tag == "image":
-                image_name = dump[i][1]
-                image_info = inserted_images.get(image_name)
+            elif item_type == "image":
+                if current_text_chunk:
+                    data_to_save.append({"type": "text", "content": current_text_chunk, "tags": current_tags_config.copy()})
+                    current_text_chunk = ""
+                
+                image_info = inserted_images.get(tag_name)
                 if image_info and "path" in image_info:
                     data_to_save.append({"type": "image", "path": image_info["path"]})
                 else:
-                    messagebox.showwarning("警告", f"画像情報が見つかりません: {image_name}")
+                    messagebox.showwarning("警告", f"画像情報が見つかりません: {tag_name}")
+
+        if current_text_chunk:
+            data_to_save.append({"type": "text", "content": current_text_chunk, "tags": current_tags_config.copy()})
 
         full_data_to_save = {
             "font_size": selected_font_size.get(),#現在のフォントサイズ
@@ -238,7 +271,7 @@ def on_closing():
             save_file(overwrite=True)
     form.destroy()#アプリケーションを終了
 
-def change_font_size(size):
+def change_defaultfont_size(size):
     """メインメモのフォントサイズを変更する"""
     current_font = main_memo.cget("font")#現在のフォント設定を取得
     font_parts = current_font.rsplit(" ", 1)#フォント名とサイズを分割
@@ -542,7 +575,7 @@ def change_font_color():
     """選択したテキストの色を変更する関数"""
     color_code = None
 
-    color_tuple = colorchooser.askcolor(title="文字色を選択")
+    color_tuple = colorchooser.askcolor(title="文字色を選択")#文字色を選択するダイアログを表示
     if color_tuple:
         color_code = color_tuple[1]
 
@@ -551,15 +584,42 @@ def change_font_color():
             start_index = main_memo.index(tk.SEL_FIRST)
             end_index = main_memo.index(tk.SEL_LAST)
 
-            main_memo.tag_remove("colored", "1.0", tk.END)
+            tag_name = f"color_{color_code.replace('#', '')}"
 
-            main_memo.tag_configure("colored", foreground=color_code)
-            main_memo.tag_add("colored", start_index, end_index)
+            main_memo.tag_configure(tag_name, foreground=color_code)
+            main_memo.tag_add(tag_name, start_index, end_index)
         except tk.TclError:
             #選択範囲がない場合デフォルトカラーを変更する
             main_memo.config(foreground=color_code)
             main_memo.edit_modified(True)
 
+def change_font_size(size):
+    """フォントごとのサイズを変更する関数"""
+    try:
+        start_index = main_memo.index(tk.SEL_FIRST)
+        end_index = main_memo.index(tk.SEL_LAST)
+        
+        # 既存のフォントサイズタグをすべて削除
+        for tag_name in main_memo.tag_names():
+            if tag_name.startswith("font_"):
+                main_memo.tag_remove(tag_name, start_index, end_index)
+        
+        # 動的なタグ名を生成
+        new_tag = f"font_{size}pt"
+        
+        # 新しいフォントオブジェクトを作成
+        font_family = main_memo.cget("font").split(" ")[0]
+        new_font = tkFont.Font(family=font_family, size=size)
+        
+        # 新しいタグを設定して選択範囲に適用
+        main_memo.tag_configure(new_tag, font=new_font)
+        main_memo.tag_add(new_tag, start_index, end_index)
+        
+    except tk.TclError:
+        # 選択範囲がない場合、デフォルトフォントを変更
+        change_font_size(size)
+
+    
         
 
 
@@ -606,13 +666,15 @@ image_menu.add_command(label="画像を削除", command=lambda: delete_selected_
 #設定メニュー
 settings_menu = Menu(menubar, tearoff=0)
 menubar.add_cascade(label="設定", menu=settings_menu)
-font_menu = Menu(settings_menu, tearoff=0)
-settings_menu.add_cascade(label="フォント設定", menu=font_menu)
-font_menu.add_radiobutton(label="小 (10pt)", command=lambda: change_font_size(10), variable=selected_font_size, value=10)
-font_menu.add_radiobutton(label="中 (12pt)", command=lambda: change_font_size(12), variable=selected_font_size, value=12)
-font_menu.add_radiobutton(label="大 (14pt)", command=lambda: change_font_size(14), variable=selected_font_size, value=14)
-font_menu.add_radiobutton(label="特大 (16pt)", command=lambda: change_font_size(16), variable=selected_font_size, value=16)
-font_menu.add_radiobutton(label="特特大 (18pt)", command=lambda: change_font_size(18), variable=selected_font_size, value=18)
+window_menu = Menu(settings_menu, tearoff=0)
+settings_menu.add_cascade(label="ウィンドウ設定", menu=window_menu)
+font_menu = Menu(window_menu, tearoff=0)
+window_menu.add_cascade(label="デフォルトフォント", menu=font_menu)
+font_menu.add_radiobutton(label="小 (10pt)", command=lambda: change_defaultfont_size(10), variable=selected_font_size, value=10)
+font_menu.add_radiobutton(label="中 (12pt)", command=lambda: change_defaultfont_size(12), variable=selected_font_size, value=12)
+font_menu.add_radiobutton(label="大 (14pt)", command=lambda: change_defaultfont_size(14), variable=selected_font_size, value=14)
+font_menu.add_radiobutton(label="特大 (16pt)", command=lambda: change_defaultfont_size(16), variable=selected_font_size, value=16)
+font_menu.add_radiobutton(label="特特大 (18pt)", command=lambda: change_defaultfont_size(18), variable=selected_font_size, value=18)
 settings_menu.add_command(label="テーマ設定", command=lambda: messagebox.showinfo("テーマ設定", "テーマ設定の機能はまだ実装されていません。"))
 
 #ヘルプメニュー
@@ -623,7 +685,18 @@ help_menu.add_command(label="ショートカットキー", command=show_how_to_u
 help_menu.add_command(label="バージョン情報", command=show_version)
 
 #フォントごとの設定
-menubar.add_command(label="文字色", command=change_font_color)
+font_settings_menu = Menu(menubar, tearoff=0)
+menubar.add_cascade(label="フォント設定", menu=font_settings_menu)
+font_settings_menu.add_command(label="文字色", command=change_font_color)
+font_size_menu = Menu(font_settings_menu, tearoff=0)
+font_settings_menu.add_cascade(label="フォントサイズ", menu=font_size_menu)
+
+# フォントサイズを選択するためのコマンドを追加
+for size in [10, 12, 14, 16, 18]:
+    font_size_menu.add_command(
+        label=f"{size}pt",
+        command=lambda s=size: change_font_size(s)
+    )
 
 #ショートカットキー設定
 form.bind('<Control-n>', lambda event: new_file())
@@ -635,7 +708,7 @@ form.bind('<Control-y>', lambda event: put_one_forward())
 form.bind('<Control-q>', lambda event: on_closing())
 form.bind('<Control-d>', lambda event: delete_selected_image(selected_image_name_for_highlight))
 
-#
+#メインのテキストフレームを作成
 text_frame = tk.Frame(form)
 text_frame.pack(expand=True, fill='both')
 
