@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import Menu, filedialog, messagebox, colorchooser
-from PIL import Image, ImageTk,ImageEnhance
+from PIL import Image, ImageTk,ImageEnhance, ImageGrab
 import json
 import os
 import tkinter.font as tkFont
@@ -295,6 +295,14 @@ def change_defaultfont_size(size):
     main_memo.config(font=(font_name, size))#フォントサイズを変更
     selected_font_size.set(size)
 
+    #ウィンドウを中央に配置
+    form.update_idletasks()
+
+    x = (form.winfo_screenwidth() // 2) - (form.winfo_width() // 2)   #(画面の幅 // 2) - (ウィンドウの幅 // 2)
+    y = (form.winfo_screenheight() // 2) - (form.winfo_height() // 2) #(画面の高さ // 2) - (ウィンドウの高さ // 2)
+
+    form.geometry(f"+{x}+{y}")
+
 def on_main_memo_click(event):
     """テキストがクリックされたときの処理"""
     global selected_image_name_for_highlight
@@ -325,6 +333,17 @@ def paste_text():
     """テキストを貼り付け"""
     main_memo.event_generate("<<Paste>>")
     modified=True#ファイル内容変更フラグON
+
+def paste_item(event=None):
+    clipboard_content = form.clipboard_get()
+    
+    if clipboard_content.strip():
+        paste_text()
+    else:
+        paste_image()
+
+def find_text():
+    """テキストを検索して選択状態にする"""
 
 #画像系
 def insert_image():
@@ -552,6 +571,44 @@ def apply_image_highlight(image_name, highlight_on):
     main_memo.image_configure(image_name, image=new_photo)
     inserted_images[image_name]["photo"] = new_photo#PhotoImage参照を更新
 
+def paste_image():
+    try:
+        # クリップボードから画像データを取得
+        img = ImageGrab.grabclipboard()
+        
+        # クリップボードに画像データが存在するか確認
+        if isinstance(img, Image.Image):
+            # 画像のサイズを調整
+            width = PICTURE_WIDTH
+            height = int(img.height * width / img.width)
+            resized_image = img.resize((width, height), Image.Resampling.LANCZOS)
+            
+            # Tkinterで表示可能な形式に変換
+            photo = ImageTk.PhotoImage(resized_image)
+            
+            # 画像を挿入し、参照を保持
+            image_name = main_memo.image_create(tk.INSERT, image=photo)
+            # 一時的なパス（例: "clipboard_image.png"）を設定して保存
+            temp_path = os.path.join(os.getcwd(), "temp_clipboard_image.png")
+            img.save(temp_path)
+            inserted_images[image_name] = {"photo": photo, "path": temp_path}
+            
+            # その他のタグ設定など
+            main_memo.tag_add(image_name, f"insert-1c")
+            main_memo.tag_bind(image_name, "<Button-1>", lambda event, img_path=temp_path, img_name=image_name: on_image_click(event, img_path, img_name))
+            main_memo.tag_bind(image_name, "<Double-Button-1>", lambda event, img_path=temp_path: show_image_popup(img_path))
+            main_memo.tag_bind(image_name, "<Button-3>", lambda event, img_name=image_name: show_image_context_menu(event, img_name))
+            
+            main_memo.tag_bind(image_name, "<Enter>", lambda event: main_memo.config(cursor="hand2"))
+            main_memo.tag_bind(image_name, "<Leave>", lambda event: main_memo.config(cursor="xterm"))
+
+            # 変更済みフラグを設定
+            main_memo.edit_modified(True)
+            
+    except Exception as e:
+        # エラー処理
+        print(f"画像貼り付けエラー: {e}")
+
 #ヘルプメッセージ系
 def show_about():
     """アプリ情報を表示"""
@@ -563,14 +620,15 @@ def show_about():
 
 def show_how_to_use():
     """使い方を表示"""
+    #スクロールバーつきのメッセージボックスを表示
     messagebox.showinfo(
         "使い方",
         "メニューバーの機能紹介\n\n"
         "「ファイルメニュー」\n"
         "新規作成\t\t新しいメモを作成します。\n"
         "開く\t\t既存のメモファイルを開きます。\n"
-        "名前を付けて保存\tメモ内容を新しいファイル名で保存します。\n"
-        "上書き保存\t現在のメモ内容を保存します。\n"
+        "名前を付けて保存\tメモを新しいファイル名で保存します。\n"
+        "上書き保存\t現在のメモを上書き保存します。\n"
         "終了\t\tアプリケーションを終了します。\n\n"
         "「編集メニュー」\n"
         "切り取り\t\t選択したテキストを切り取ります。\n"
@@ -579,11 +637,14 @@ def show_how_to_use():
         "一つ戻す\t\t最後の操作を取り消します。\n"
         "一つ進める\t\t戻した操作を再実行します。\n\n"
         "「画像・フォントメニュー」\n"
-        "画像挿入\t\tメモに画像を挿入できます。\n"
-        "画像削除\t\t選択した画像を削除します。\n\n"
+        "画像挿入\t\tメモに画像を挿入できます。画像は\n\t\tクリックで選択、ダブルクリックで拡大表示できます。\n"
+        "画像削除\t\t選択した画像を削除します。\n"
         "フォントサイズ\t選択したテキストのフォントサイズを変更します。\n"
-        "文字色\t\t選択したテキストの色を変更します。\n\n"
-        "画像はクリックで選択、ダブルクリックで拡大表示できます。"
+        "\t\tなにも選択しなかった場合、デフォルトの\n\t\tフォントサイズを変更します。\n"
+        "文字色\t\t選択したテキストの色を変更します。\n"
+        "\t\tなにも選択しなかった場合、デフォルトの\n\t\t文字色を変更します。\n\n"
+        "「設定メニュー」\n"
+        "ウィンドウモード\tデフォルトフォントサイズや画面の表示モードなどの\n\t\tアプリケーションの表示モードを変更します。"
     )
 
 def show_shortcut_keys():
@@ -593,10 +654,12 @@ def show_shortcut_keys():
         "各ボタンに書いてあるキーをCtrlキーと一緒に押すことで、\n"
         "同じ操作を行うことができます。"
         "\n\n"
-        "新規作成: \tCtrl + N\n"
+        "新規作成: \t\tCtrl + N\n"
         "開く: \t\tCtrl + P\n"
         "上書き保存: \tCtrl + S\n"
-        "画像挿入: \tCtrl + I\n"
+        "画像挿入: \t\tCtrl + I\n"
+        "画像削除: \t\tCtrl + D\n"
+        "文字色: \t\tCtrl + R\n"
         "一つ戻す: \t\tCtrl + Z\n"
         "一つ進める: \tCtrl + Y\n"
         "終了: \t\tCtrl + Q\n"
@@ -606,13 +669,14 @@ def show_version():
     """バージョン情報を表示"""
     messagebox.showinfo(
         "バージョン情報",
-        "バージョン:\t1.0.2\n"
-        "更新日:\t2025/07/27\n"
+        "バージョン:\t1.1.0\n"
+        "更新日:\t2025/08/20\n"
     )
 
 #文字設定系
 def change_font_color():
     """選択したテキストの色を変更する関数"""
+    global default_font_color
     color_code = None
 
     color_tuple = colorchooser.askcolor(title="文字色を選択")#文字色を選択するダイアログを表示
@@ -623,15 +687,18 @@ def change_font_color():
         try:
             start_index = main_memo.index(tk.SEL_FIRST)
             end_index = main_memo.index(tk.SEL_LAST)
-
+            
             tag_name = f"color_{color_code.replace('#', '')}"
 
             main_memo.tag_configure(tag_name, foreground=color_code)
             main_memo.tag_add(tag_name, start_index, end_index)
+            main_memo.edit_modified(True)
         except tk.TclError:
             #選択範囲がない場合デフォルトカラーを変更する
-            main_memo.config(foreground=color_code)
-            main_memo.edit_modified(True)
+            if messagebox.askyesno("確認", "選択範囲がありません。デフォルトの文字色を変更しますか？"):
+                default_font_color = color_code
+                main_memo.config(foreground=color_code)
+                main_memo.edit_modified(True)
 
 def change_font_size(size):
     """フォントごとのサイズを変更する関数"""
@@ -656,11 +723,21 @@ def change_font_size(size):
         main_memo.tag_add(new_tag, start_index, end_index)
         
     except tk.TclError:
-        #選択範囲がない場合、デフォルトフォントを変更
-        change_font_size(size)
+        if messagebox.askyesno("確認", "選択範囲がありません。デフォルトのフォントサイズを変更しますか？"):
+            change_defaultfont_size(size)
 
-    
-        
+def change_windowmode(mode):
+    """ウィンドウモードを変更する関数"""
+    global default_font_color
+    #ライトモード
+    if mode == "light":
+        form.tk_setPalette(background="#ffffff", foreground="#000000")
+        default_font_color = "black"
+    #ダークモード
+    elif mode == "dark":
+        form.tk_setPalette(background="#2C2C2C", foreground="#ffffff")
+        default_font_color = "white"
+
 
 
 #---GUI---
@@ -691,7 +768,7 @@ edit_menu = Menu(menubar, tearoff=0)
 menubar.add_cascade(label="編集", menu=edit_menu)
 edit_menu.add_command(label="切り取り(X)", command=cut_text)
 edit_menu.add_command(label="コピー(C)", command=copy_text)
-edit_menu.add_command(label="貼り付け(V)", command=paste_text)
+edit_menu.add_command(label="貼り付け(V)", command=paste_item)
 edit_menu.add_separator()  # 区切り線
 edit_menu.add_command(label="一つ戻す(Z)", command=put_one_back)
 edit_menu.add_command(label="一つ進める(Y)", command=put_one_forward)
@@ -702,11 +779,11 @@ menubar.add_cascade(label="画像・フォント", menu=image_menu)
 image_menu.add_command(label="画像挿入(I)", command=insert_image)
 image_menu.add_command(label="画像を削除(D)", command=lambda: delete_selected_image(selected_image_name_for_highlight))
 image_menu.add_separator()  # 区切り線
-image_menu.add_command(label="文字色", command=change_font_color)
+image_menu.add_command(label="文字色(R)", command=change_font_color)
 font_size_menu = Menu(image_menu, tearoff=0)
 image_menu.add_cascade(label="フォントサイズ", menu=font_size_menu)
-for size in [10, 12, 14, 16, 18]:
-    font_size_menu.add_radiobutton(label=f"{size}pt", command=lambda: change_font_size(size), variable=selected_font_size, value=size)
+for size in [8, 10, 12, 14, 16, 18, 20, 22, 24]:
+    font_size_menu.add_radiobutton(label=f"{size}pt", command=lambda s=size: change_font_size(s), variable=selected_font_size, value=size)
 
 #設定メニュー
 settings_menu = Menu(menubar, tearoff=0)
@@ -714,10 +791,13 @@ menubar.add_cascade(label="設定", menu=settings_menu)
 window_menu = Menu(settings_menu, tearoff=0)
 settings_menu.add_cascade(label="ウィンドウ設定", menu=window_menu)
 font_menu = Menu(window_menu, tearoff=0)
-window_menu.add_cascade(label="デフォルトフォント", menu=font_menu)
-for size in [10, 12, 14, 16, 18]:
-    font_menu.add_radiobutton(label=f"{size}pt", command=lambda: change_defaultfont_size(size), variable=selected_font_size, value=size)
-settings_menu.add_command(label="テーマ設定", command=lambda: messagebox.showinfo("テーマ設定", "テーマ設定の機能はまだ実装されていません。"))
+window_menu.add_cascade(label="デフォルトフォントサイズ", menu=font_menu)
+for size in [8, 10, 12, 14, 16, 18, 20, 22, 24]:
+    font_menu.add_radiobutton(label=f"{size}pt", command=lambda s=size: change_defaultfont_size(s), variable=selected_font_size, value=size)
+theme_menu = Menu(window_menu, tearoff=0)
+window_menu.add_cascade(label="画面モード設定", menu=theme_menu)
+theme_menu.add_command(label="ライトモード", command=lambda: change_windowmode("light"))
+theme_menu.add_command(label="ダークモード", command=lambda: change_windowmode("dark"))
 
 #ヘルプメニュー
 help_menu = Menu(menubar, tearoff=0)
@@ -725,6 +805,7 @@ menubar.add_cascade(label="ヘルプ", menu=help_menu)
 help_menu.add_command(label="ピクメモについて", command=show_about)
 help_menu.add_command(label="使い方", command=show_how_to_use)
 help_menu.add_command(label="ショートカットキー", command=show_shortcut_keys)
+help_menu.add_separator()  #区切り線
 help_menu.add_command(label="バージョン情報", command=show_version)
 
 #ショートカットキー設定
@@ -736,6 +817,8 @@ form.bind('<Control-z>', lambda event: put_one_back())
 form.bind('<Control-y>', lambda event: put_one_forward())
 form.bind('<Control-q>', lambda event: on_closing())
 form.bind('<Control-d>', lambda event: delete_selected_image(selected_image_name_for_highlight))
+form.bind('<Control-r>', lambda event: change_font_color())
+form.bind('<Control-f>', lambda event: find_text())
 
 #メインのテキストフレームを作成
 text_frame = tk.Frame(form)

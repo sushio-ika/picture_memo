@@ -21,6 +21,7 @@ imports:
     <a href="#PIL">PIL</a>
  &#8226;   <a href="#PIL.Image">PIL.Image</a>
  &#8226;   <a href="#PIL.ImageEnhance">PIL.ImageEnhance</a>
+ &#8226;   <a href="#PIL.ImageGrab">PIL.ImageGrab</a>
  &#8226;   <a href="#PIL.ImageTk">PIL.ImageTk</a>
  &#8226;   <a href="#_collections_abc">_collections_abc</a>
  &#8226;   <a href="#_weakrefset">_weakrefset</a>
@@ -28,6 +29,7 @@ imports:
  &#8226;   <a href="#codecs">codecs</a>
  &#8226;   <a href="#collections">collections</a>
  &#8226;   <a href="#copyreg">copyreg</a>
+ &#8226;   <a href="#ctypes">ctypes</a>
  &#8226;   <a href="#encodings">encodings</a>
  &#8226;   <a href="#encodings.aliases">encodings.aliases</a>
  &#8226;   <a href="#encodings.ascii">encodings.ascii</a>
@@ -168,7 +170,6 @@ imports:
  &#8226;   <a href="#pyi_rth_multiprocessing.py">pyi_rth_multiprocessing.py</a>
  &#8226;   <a href="#pyi_rth_pkgutil.py">pyi_rth_pkgutil.py</a>
  &#8226;   <a href="#pyi_rth_setuptools.py">pyi_rth_setuptools.py</a>
- &#8226;   <a href="#random">random</a>
  &#8226;   <a href="#re">re</a>
  &#8226;   <a href="#re._casefix">re._casefix</a>
  &#8226;   <a href="#re._compiler">re._compiler</a>
@@ -180,10 +181,10 @@ imports:
  &#8226;   <a href="#sre_parse">sre_parse</a>
  &#8226;   <a href="#stat">stat</a>
  &#8226;   <a href="#tkinter">tkinter</a>
+ &#8226;   <a href="#tkinter.colorchooser">tkinter.colorchooser</a>
  &#8226;   <a href="#tkinter.filedialog">tkinter.filedialog</a>
+ &#8226;   <a href="#tkinter.font">tkinter.font</a>
  &#8226;   <a href="#tkinter.messagebox">tkinter.messagebox</a>
- &#8226;   <a href="#tkinter.scrolledtext">tkinter.scrolledtext</a>
- &#8226;   <a href="#tkinter.ttk">tkinter.ttk</a>
  &#8226;   <a href="#traceback">traceback</a>
  &#8226;   <a href="#types">types</a>
  &#8226;   <a href="#warnings">warnings</a>
@@ -381,6 +382,7 @@ imports:
  &#8226;   <a href="#PIL.ImageEnhance">PIL.ImageEnhance</a>
  &#8226;   <a href="#PIL.ImageFile">PIL.ImageFile</a>
  &#8226;   <a href="#PIL.ImageFilter">PIL.ImageFilter</a>
+ &#8226;   <a href="#PIL.ImageGrab">PIL.ImageGrab</a>
  &#8226;   <a href="#PIL.ImageMath">PIL.ImageMath</a>
  &#8226;   <a href="#PIL.ImageMode">PIL.ImageMode</a>
  &#8226;   <a href="#PIL.ImageOps">PIL.ImageOps</a>
@@ -442,6 +444,7 @@ imported by:
  &#8226;   <a href="#PIL.ImageEnhance">PIL.ImageEnhance</a>
  &#8226;   <a href="#PIL.ImageFile">PIL.ImageFile</a>
  &#8226;   <a href="#PIL.ImageFilter">PIL.ImageFilter</a>
+ &#8226;   <a href="#PIL.ImageGrab">PIL.ImageGrab</a>
  &#8226;   <a href="#PIL.ImageMath">PIL.ImageMath</a>
  &#8226;   <a href="#PIL.ImageMode">PIL.ImageMode</a>
  &#8226;   <a href="#PIL.ImageOps">PIL.ImageOps</a>
@@ -573,6 +576,7 @@ imported by:
  &#8226;   <a href="#PIL.CurImagePlugin">PIL.CurImagePlugin</a>
  &#8226;   <a href="#PIL.IcoImagePlugin">PIL.IcoImagePlugin</a>
  &#8226;   <a href="#PIL.Image">PIL.Image</a>
+ &#8226;   <a href="#PIL.ImageGrab">PIL.ImageGrab</a>
 
   </div>
 
@@ -1143,6 +1147,7 @@ imported by:
  &#8226;   <a href="#PIL.ImageEnhance">PIL.ImageEnhance</a>
  &#8226;   <a href="#PIL.ImageFile">PIL.ImageFile</a>
  &#8226;   <a href="#PIL.ImageFilter">PIL.ImageFilter</a>
+ &#8226;   <a href="#PIL.ImageGrab">PIL.ImageGrab</a>
  &#8226;   <a href="#PIL.ImageMath">PIL.ImageMath</a>
  &#8226;   <a href="#PIL.ImageOps">PIL.ImageOps</a>
  &#8226;   <a href="#PIL.ImagePalette">PIL.ImagePalette</a>
@@ -1382,6 +1387,36 @@ imported by:
     <a href="#PIL">PIL</a>
  &#8226;   <a href="#PIL.Image">PIL.Image</a>
  &#8226;   <a href="#PIL.ImageEnhance">PIL.ImageEnhance</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="PIL.ImageGrab"></a>
+  <a target="code" href="///C:/Python/Python3/Lib/site-packages/PIL/ImageGrab.py" type="text/plain"><tt>PIL.ImageGrab</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#PIL">PIL</a>
+ &#8226;   <a href="#PIL.BmpImagePlugin">PIL.BmpImagePlugin</a>
+ &#8226;   <a href="#PIL.Image">PIL.Image</a>
+ &#8226;   <a href="#PIL.ImageWin">PIL.ImageWin</a>
+ &#8226;   <a href="#PIL.PngImagePlugin">PIL.PngImagePlugin</a>
+ &#8226;   <a href="#__future__">__future__</a>
+ &#8226;   <a href="#binascii">binascii</a>
+ &#8226;   <a href="#io">io</a>
+ &#8226;   <a href="#os">os</a>
+ &#8226;   <a href="#shutil">shutil</a>
+ &#8226;   <a href="#struct">struct</a>
+ &#8226;   <a href="#subprocess">subprocess</a>
+ &#8226;   <a href="#sys">sys</a>
+ &#8226;   <a href="#tempfile">tempfile</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#PIL">PIL</a>
+ &#8226;   <a href="#picmemo.py">picmemo.py</a>
 
   </div>
 
@@ -1636,6 +1671,7 @@ imports:
 imported by:
     <a href="#PIL">PIL</a>
  &#8226;   <a href="#PIL.ImageCms">PIL.ImageCms</a>
+ &#8226;   <a href="#PIL.ImageGrab">PIL.ImageGrab</a>
 
   </div>
 
@@ -2075,6 +2111,7 @@ imported by:
  &#8226;   <a href="#PIL.IcnsImagePlugin">PIL.IcnsImagePlugin</a>
  &#8226;   <a href="#PIL.IcoImagePlugin">PIL.IcoImagePlugin</a>
  &#8226;   <a href="#PIL.Image">PIL.Image</a>
+ &#8226;   <a href="#PIL.ImageGrab">PIL.ImageGrab</a>
 
   </div>
 
@@ -2743,6 +2780,7 @@ imported by:
  &#8226;   <a href="#PIL.ImageEnhance">PIL.ImageEnhance</a>
  &#8226;   <a href="#PIL.ImageFile">PIL.ImageFile</a>
  &#8226;   <a href="#PIL.ImageFilter">PIL.ImageFilter</a>
+ &#8226;   <a href="#PIL.ImageGrab">PIL.ImageGrab</a>
  &#8226;   <a href="#PIL.ImageMath">PIL.ImageMath</a>
  &#8226;   <a href="#PIL.ImageMode">PIL.ImageMode</a>
  &#8226;   <a href="#PIL.ImageOps">PIL.ImageOps</a>
@@ -5811,7 +5849,8 @@ imported by:
   <a name="binascii"></a>
   <tt>binascii</tt> <span class="moduletype"><i>(builtin module)</i></span>  <div class="import">
 imported by:
-    <a href="#base64">base64</a>
+    <a href="#PIL.ImageGrab">PIL.ImageGrab</a>
+ &#8226;   <a href="#base64">base64</a>
  &#8226;   <a href="#email._encoded_words">email._encoded_words</a>
  &#8226;   <a href="#email.base64mime">email.base64mime</a>
  &#8226;   <a href="#email.contentmanager">email.contentmanager</a>
@@ -6542,6 +6581,7 @@ imported by:
  &#8226;   <a href="#ctypes.wintypes">ctypes.wintypes</a>
  &#8226;   <a href="#multiprocessing.sharedctypes">multiprocessing.sharedctypes</a>
  &#8226;   <a href="#packaging._manylinux">packaging._manylinux</a>
+ &#8226;   <a href="#picmemo.py">picmemo.py</a>
  &#8226;   <a href="#platform">platform</a>
  &#8226;   <a href="#setuptools._vendor.packaging._manylinux">setuptools._vendor.packaging._manylinux</a>
  &#8226;   <a href="#setuptools._vendor.wheel.macosx_libfile">setuptools._vendor.wheel.macosx_libfile</a>
@@ -11263,6 +11303,7 @@ imported by:
  &#8226;   <a href="#PIL.IcoImagePlugin">PIL.IcoImagePlugin</a>
  &#8226;   <a href="#PIL.Image">PIL.Image</a>
  &#8226;   <a href="#PIL.ImageFile">PIL.ImageFile</a>
+ &#8226;   <a href="#PIL.ImageGrab">PIL.ImageGrab</a>
  &#8226;   <a href="#PIL.ImageQt">PIL.ImageQt</a>
  &#8226;   <a href="#PIL.ImageTk">PIL.ImageTk</a>
  &#8226;   <a href="#PIL.IptcImagePlugin">PIL.IptcImagePlugin</a>
@@ -11432,6 +11473,7 @@ imported by:
  &#8226;   <a href="#setuptools.wheel">setuptools.wheel</a>
  &#8226;   <a href="#statistics">statistics</a>
  &#8226;   <a href="#threading">threading</a>
+ &#8226;   <a href="#tkinter.font">tkinter.font</a>
  &#8226;   <a href="#tokenize">tokenize</a>
  &#8226;   <a href="#traceback">traceback</a>
  &#8226;   <a href="#weakref">weakref</a>
@@ -12888,6 +12930,7 @@ imported by:
  &#8226;   <a href="#PIL.ImImagePlugin">PIL.ImImagePlugin</a>
  &#8226;   <a href="#PIL.Image">PIL.Image</a>
  &#8226;   <a href="#PIL.ImageFile">PIL.ImageFile</a>
+ &#8226;   <a href="#PIL.ImageGrab">PIL.ImageGrab</a>
  &#8226;   <a href="#PIL.ImageShow">PIL.ImageShow</a>
  &#8226;   <a href="#PIL.Jpeg2KImagePlugin">PIL.Jpeg2KImagePlugin</a>
  &#8226;   <a href="#PIL.JpegImagePlugin">PIL.JpegImagePlugin</a>
@@ -13977,7 +14020,6 @@ imported by:
     <a href="#PIL.ImagePalette">PIL.ImagePalette</a>
  &#8226;   <a href="#email.generator">email.generator</a>
  &#8226;   <a href="#email.utils">email.utils</a>
- &#8226;   <a href="#picmemo.py">picmemo.py</a>
  &#8226;   <a href="#secrets">secrets</a>
  &#8226;   <a href="#setuptools._vendor.more_itertools.more">setuptools._vendor.more_itertools.more</a>
  &#8226;   <a href="#setuptools._vendor.more_itertools.recipes">setuptools._vendor.more_itertools.recipes</a>
@@ -18635,6 +18677,7 @@ imports:
   <div class="import">
 imported by:
     <a href="#PIL.EpsImagePlugin">PIL.EpsImagePlugin</a>
+ &#8226;   <a href="#PIL.ImageGrab">PIL.ImageGrab</a>
  &#8226;   <a href="#PIL.ImageShow">PIL.ImageShow</a>
  &#8226;   <a href="#argparse">argparse</a>
  &#8226;   <a href="#ctypes.util">ctypes.util</a>
@@ -19009,6 +19052,7 @@ imported by:
  &#8226;   <a href="#PIL.IcnsImagePlugin">PIL.IcnsImagePlugin</a>
  &#8226;   <a href="#PIL.Image">PIL.Image</a>
  &#8226;   <a href="#PIL.ImageFile">PIL.ImageFile</a>
+ &#8226;   <a href="#PIL.ImageGrab">PIL.ImageGrab</a>
  &#8226;   <a href="#PIL.Jpeg2KImagePlugin">PIL.Jpeg2KImagePlugin</a>
  &#8226;   <a href="#PIL.JpegImagePlugin">PIL.JpegImagePlugin</a>
  &#8226;   <a href="#PIL.McIdasImagePlugin">PIL.McIdasImagePlugin</a>
@@ -19079,6 +19123,7 @@ imports:
 imported by:
     <a href="#PIL.EpsImagePlugin">PIL.EpsImagePlugin</a>
  &#8226;   <a href="#PIL.GifImagePlugin">PIL.GifImagePlugin</a>
+ &#8226;   <a href="#PIL.ImageGrab">PIL.ImageGrab</a>
  &#8226;   <a href="#PIL.ImageShow">PIL.ImageShow</a>
  &#8226;   <a href="#PIL.JpegImagePlugin">PIL.JpegImagePlugin</a>
  &#8226;   <a href="#_aix_support">_aix_support</a>
@@ -19123,6 +19168,7 @@ imported by:
  &#8226;   <a href="#PIL.IcnsImagePlugin">PIL.IcnsImagePlugin</a>
  &#8226;   <a href="#PIL.Image">PIL.Image</a>
  &#8226;   <a href="#PIL.ImageCms">PIL.ImageCms</a>
+ &#8226;   <a href="#PIL.ImageGrab">PIL.ImageGrab</a>
  &#8226;   <a href="#PIL.ImageMode">PIL.ImageMode</a>
  &#8226;   <a href="#PIL.ImageQt">PIL.ImageQt</a>
  &#8226;   <a href="#PIL.ImageShow">PIL.ImageShow</a>
@@ -19430,6 +19476,7 @@ imports:
 imported by:
     <a href="#PIL.EpsImagePlugin">PIL.EpsImagePlugin</a>
  &#8226;   <a href="#PIL.Image">PIL.Image</a>
+ &#8226;   <a href="#PIL.ImageGrab">PIL.ImageGrab</a>
  &#8226;   <a href="#PIL.JpegImagePlugin">PIL.JpegImagePlugin</a>
  &#8226;   <a href="#_pyrepl.pager">_pyrepl.pager</a>
  &#8226;   <a href="#asyncio.windows_utils">asyncio.windows_utils</a>
@@ -19624,12 +19671,11 @@ imports:
  &#8226;   <a href="#os">os</a>
  &#8226;   <a href="#re">re</a>
  &#8226;   <a href="#sys">sys</a>
+ &#8226;   <a href="#tkinter.colorchooser">tkinter.colorchooser</a>
  &#8226;   <a href="#tkinter.commondialog">tkinter.commondialog</a>
  &#8226;   <a href="#tkinter.constants">tkinter.constants</a>
  &#8226;   <a href="#tkinter.filedialog">tkinter.filedialog</a>
  &#8226;   <a href="#tkinter.messagebox">tkinter.messagebox</a>
- &#8226;   <a href="#tkinter.scrolledtext">tkinter.scrolledtext</a>
- &#8226;   <a href="#tkinter.ttk">tkinter.ttk</a>
  &#8226;   <a href="#traceback">traceback</a>
  &#8226;   <a href="#types">types</a>
 
@@ -19637,14 +19683,32 @@ imports:
   <div class="import">
 imported by:
     <a href="#picmemo.py">picmemo.py</a>
+ &#8226;   <a href="#tkinter.colorchooser">tkinter.colorchooser</a>
  &#8226;   <a href="#tkinter.commondialog">tkinter.commondialog</a>
  &#8226;   <a href="#tkinter.constants">tkinter.constants</a>
  &#8226;   <a href="#tkinter.dialog">tkinter.dialog</a>
  &#8226;   <a href="#tkinter.filedialog">tkinter.filedialog</a>
+ &#8226;   <a href="#tkinter.font">tkinter.font</a>
  &#8226;   <a href="#tkinter.messagebox">tkinter.messagebox</a>
- &#8226;   <a href="#tkinter.scrolledtext">tkinter.scrolledtext</a>
  &#8226;   <a href="#tkinter.simpledialog">tkinter.simpledialog</a>
- &#8226;   <a href="#tkinter.ttk">tkinter.ttk</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="tkinter.colorchooser"></a>
+  <a target="code" href="///C:/Python/Python3/Lib/tkinter/colorchooser.py" type="text/plain"><tt>tkinter.colorchooser</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#tkinter">tkinter</a>
+ &#8226;   <a href="#tkinter.commondialog">tkinter.commondialog</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#picmemo.py">picmemo.py</a>
+ &#8226;   <a href="#tkinter">tkinter</a>
 
   </div>
 
@@ -19661,6 +19725,7 @@ imports:
   <div class="import">
 imported by:
     <a href="#tkinter">tkinter</a>
+ &#8226;   <a href="#tkinter.colorchooser">tkinter.colorchooser</a>
  &#8226;   <a href="#tkinter.filedialog">tkinter.filedialog</a>
  &#8226;   <a href="#tkinter.messagebox">tkinter.messagebox</a>
 
@@ -19679,7 +19744,6 @@ imports:
   <div class="import">
 imported by:
     <a href="#tkinter">tkinter</a>
- &#8226;   <a href="#tkinter.scrolledtext">tkinter.scrolledtext</a>
 
   </div>
 
@@ -19725,6 +19789,23 @@ imported by:
 </div>
 
 <div class="node">
+  <a name="tkinter.font"></a>
+  <a target="code" href="///C:/Python/Python3/Lib/tkinter/font.py" type="text/plain"><tt>tkinter.font</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#itertools">itertools</a>
+ &#8226;   <a href="#tkinter">tkinter</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#picmemo.py">picmemo.py</a>
+
+  </div>
+
+</div>
+
+<div class="node">
   <a name="tkinter.messagebox"></a>
   <a target="code" href="///C:/Python/Python3/Lib/tkinter/messagebox.py" type="text/plain"><tt>tkinter.messagebox</tt></a>
 <span class="moduletype">SourceModule</span>  <div class="import">
@@ -19744,24 +19825,6 @@ imported by:
 </div>
 
 <div class="node">
-  <a name="tkinter.scrolledtext"></a>
-  <a target="code" href="///C:/Python/Python3/Lib/tkinter/scrolledtext.py" type="text/plain"><tt>tkinter.scrolledtext</tt></a>
-<span class="moduletype">SourceModule</span>  <div class="import">
-imports:
-    <a href="#tkinter">tkinter</a>
- &#8226;   <a href="#tkinter.constants">tkinter.constants</a>
-
-  </div>
-  <div class="import">
-imported by:
-    <a href="#picmemo.py">picmemo.py</a>
- &#8226;   <a href="#tkinter">tkinter</a>
-
-  </div>
-
-</div>
-
-<div class="node">
   <a name="tkinter.simpledialog"></a>
   <a target="code" href="///C:/Python/Python3/Lib/tkinter/simpledialog.py" type="text/plain"><tt>tkinter.simpledialog</tt></a>
 <span class="moduletype">SourceModule</span>  <div class="import">
@@ -19773,23 +19836,6 @@ imports:
   <div class="import">
 imported by:
     <a href="#tkinter.filedialog">tkinter.filedialog</a>
-
-  </div>
-
-</div>
-
-<div class="node">
-  <a name="tkinter.ttk"></a>
-  <a target="code" href="///C:/Python/Python3/Lib/tkinter/ttk.py" type="text/plain"><tt>tkinter.ttk</tt></a>
-<span class="moduletype">SourceModule</span>  <div class="import">
-imports:
-    <a href="#tkinter">tkinter</a>
-
-  </div>
-  <div class="import">
-imported by:
-    <a href="#picmemo.py">picmemo.py</a>
- &#8226;   <a href="#tkinter">tkinter</a>
 
   </div>
 
