@@ -13,66 +13,67 @@ except:
 
 inserted_images = {}
 current_filepath = None#現在開いているファイルのパス
-modified = False
-selected_font_size = None#フォントサイズを保持する変数
 selected_image_name_for_highlight = None#現在ハイライトされている画像の名前
 #デフォルトの文字色をカラーコードで保存
-default_font_color = "#000000"  #黒色
 
 HIGHLIGHT_BRIGHTNESS_FACTOR = 0.7#明るさ倍率
 HIGHLIGHT_OPACITY_FACTOR = 0.7#透明度倍率
 
 PICTURE_WIDTH = 300#画像の横幅を固定
 DEFAULT_FONT_SIZE = 12#デフォルトのフォントサイズ
+DEFAULT_FONT_COLOR = "#000000"  #黒色
 
 # --- 関数定義 ---
 #ファイル編集系
 def new_file():
     """新規ファイルを作成"""
-    global current_filepath,modified
+    global current_filepath, inserted_images, DEFAULT_FONT_SIZE, DEFAULT_FONT_COLOR
 
-    if modified:#ファイル内容が変更されていた場合
+    if main_memo.edit_modified():#ファイル内容が変更されていた場合
         result = messagebox.askyesnocancel("確認", "変更内容を保存しますか？")
         if result is None:#キャンセルが選択された場合
             return
         elif result:#はいが選択された場合
             save_file(overwrite=True)
 
-    main_memo.delete(1.0, tk.END)#テキストをクリア
-    main_memo.edit_modified(False)
-
-    form.title("ピクメモ")
+    form.title("新規ファイル")
     current_filepath = None#新規作成なのでパスはクリア
 
-    main_memo.config(foreground=default_font_color)
+    main_memo.config(foreground=DEFAULT_FONT_COLOR)
     change_defaultfont_size(12)#デフォルトのフォントサイズに設定
+    main_memo.delete(1.0, tk.END)#テキストをクリア
     main_memo.focus_set()#カーソルを自動でセット
-    modified = False#編集状態をリセット
+    main_memo.edit_modified(False)
 
 def open_file():
     """ファイルを開く"""
-    global current_filepath,modified
+    global current_filepath
     
-    filepath = filedialog.askopenfilename(
+    new_filepath = filedialog.askopenfilename(
         defaultextension=".json",
         filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
     )
 
-    if not filepath:
+    if not new_filepath:
         return
-    
-    current_filepath = filepath#ファイルパスを更新
 
     try:
-        if modified:#ファイル内容が変更されていた場合
+        if main_memo.edit_modified():#ファイル内容が変更されていた場合
             result = messagebox.askyesnocancel("確認", "変更内容を保存しますか？")
             if result is None:#キャンセルが選択された場合
                 return
             elif result:#はいが選択された場合
                 save_file(overwrite=True)
 
+        current_filepath = new_filepath#ファイルパスを更新
+
         main_memo.delete(1.0, tk.END)#テキストをクリア
         inserted_images.clear()#画像参照をクリア
+
+        main_memo.config(font=("Consolas", DEFAULT_FONT_SIZE))
+        main_memo.config(foreground="#000000")
+        for item_value in main_memo.tag_names():
+            main_memo.tag_delete(item_value)
 
         with open(current_filepath, "r", encoding="utf-8") as f:
             loaded_data = json.load(f)
@@ -90,18 +91,16 @@ def open_file():
             #テキストの場合
             if item["type"] == "text":
                 if "tags" in item:
-                    #タグ設定を再構成して適用
                     tags_to_apply = []
-                    for tag_name, tag_config in item["tags"].items():#tagsアイテムのタグを順に処理
-
-                        if tag_name.startswith("color_"):#カラーコードタグの場合
+                    for item_value, tag_config in item["tags"].items():
+                        if item_value.startswith("color_"):#カラーコードタグの場合
                             color_code = tag_config["foreground"]
-                            main_memo.tag_configure(tag_name, foreground=color_code)
-                            tags_to_apply.append(tag_name)
-                        elif tag_name.startswith("font_"):#フォントサイズタグの場合
+                            main_memo.tag_configure(item_value, foreground=color_code)
+                            tags_to_apply.append(item_value)
+                        elif item_value.startswith("font_"):#フォントサイズタグの場合
                             font_size = int(tag_config["font-size"].replace("pt", ""))
-                            main_memo.tag_configure(tag_name, font=("Consolas", font_size))
-                            tags_to_apply.append(tag_name)
+                            main_memo.tag_configure(item_value, font=("Consolas", font_size))
+                            tags_to_apply.append(item_value)
 
                     if tags_to_apply:
                         main_memo.insert(tk.END, item["content"], tags_to_apply)
@@ -131,7 +130,7 @@ def open_file():
 
 
                     main_memo.tag_add(image_name, f"insert-1c")#image_nameをこのインデックスに追加
-                    main_memo.tag_bind(image_name, "<Button-1>", lambda event, img_path=filepath,img_name=image_name: on_image_click(event, img_path, img_name))#左クリック
+                    main_memo.tag_bind(image_name, "<Button-1>", lambda event, img_path=current_filepath,img_name=image_name: on_image_click(event, img_path, img_name))#左クリック
                     main_memo.tag_bind(image_name, "<Double-Button-1>", lambda event, img_path=image_path: show_image_popup(img_path))#ダブルクリック
                     main_memo.tag_bind(image_name, "<Button-3>", lambda event, img_name=image_name: show_image_context_menu(event, img_name))#右クリック
                     
@@ -151,12 +150,10 @@ def open_file():
             main_memo.delete("end-2c", tk.END)
         
         main_memo.focus_set()#カーソルを自動でセット
-        modified = False#編集状態をリセット
         main_memo.update_idletasks() 
         main_memo.edit_modified(False)#Tkinterのmodifiedフラグもリセット
 
-        current_filepath = filepath
-        form.title(os.path.basename(filepath))
+        form.title(os.path.basename(current_filepath))
         print("読み込み完了", "ファイルが正常に読み込まれました。")
 
     except Exception as e:
@@ -164,7 +161,7 @@ def open_file():
 
 def save_file(overwrite=False):
     """ファイルを保存"""
-    global current_filepath, modified
+    global current_filepath, DEFAULT_FONT_SIZE, DEFAULT_FONT_COLOR
 
     #上書き保存か名前を付けて保存（current_filepathの中身が存在しているかどうか）
     if overwrite and current_filepath:
@@ -193,12 +190,22 @@ def save_file(overwrite=False):
         current_tags_config = {}
         
 
-        for item_type, tag_name, index in dump:
+        for item_type, item_value, index in dump:
             #テキストの場合
             if item_type == "text":
-                current_text_chunk += tag_name
+                current_text_chunk += item_value
             #タグの場合
             elif item_type == "tagon":#タグ開始
+                if current_text_chunk:
+                    #デフォルトスタイルを適用して保存
+                    if not current_tags_config:
+                        current_tags_config["font-size"] = f"{DEFAULT_FONT_SIZE}pt"
+                        current_tags_config["foreground"] = DEFAULT_FONT_COLOR
+                    data_to_save.append({"type": "text", "content": current_text_chunk, "tags": current_tags_config.copy()})
+                    current_text_chunk = ""
+                    current_tags_config.clear()
+                
+                tag_name = item_value
 
                 if tag_name.startswith("color_"):#カラーコードタグの場合
                     color_code = f"#{tag_name.split('_')[1]}"
@@ -208,22 +215,30 @@ def save_file(overwrite=False):
                     current_tags_config[tag_name] = {"font-size": font_size}
 
             elif item_type == "tagoff":#タグ終了
-                if tag_name in current_tags_config:#タグが存在する場合
-                    if current_text_chunk:#現在のテキストチャンクが空でない場合
-                        data_to_save.append({"type": "text", "content": current_text_chunk, "tags": current_tags_config.copy()})
-                        current_text_chunk = ""
-                    del current_tags_config[tag_name]
+                if current_text_chunk:
+                    # デフォルトスタイルを適用して保存
+                    if not current_tags_config:
+                        current_tags_config["font-size"] = f"{DEFAULT_FONT_SIZE}pt"
+                        current_tags_config["foreground"] = DEFAULT_FONT_COLOR
+                    data_to_save.append({"type": "text", "content": current_text_chunk, "tags": current_tags_config.copy()})
+                    current_text_chunk = ""
+                    current_tags_config.clear()
             #画像の場合
             elif item_type == "image":
                 if current_text_chunk:
+                    if not current_tags_config:
+                        current_tags_config["font-size"] = f"{DEFAULT_FONT_SIZE}pt"
+                        current_tags_config["foreground"] = DEFAULT_FONT_COLOR
                     data_to_save.append({"type": "text", "content": current_text_chunk, "tags": current_tags_config.copy()})
                     current_text_chunk = ""
+                    current_tags_config.clear()
                 
-                image_info = inserted_images.get(tag_name)
+                image_name = item_value
+                image_info = inserted_images.get(image_name)
                 if image_info and "path" in image_info:
                     data_to_save.append({"type": "image", "path": image_info["path"]})
                 else:
-                    messagebox.showwarning("警告", f"画像情報が見つかりません: {tag_name}")
+                    messagebox.showwarning("警告", f"画像情報が見つかりません: {image_name}")
             #その他のアイテムタイプ
             else:
                 messagebox.showwarning("警告", f"未知のアイテムタイプ: {item_type}")
@@ -232,7 +247,7 @@ def save_file(overwrite=False):
             data_to_save.append({"type": "text", "content": current_text_chunk, "tags": current_tags_config.copy()})
 
         full_data_to_save = {
-            "font_size": selected_font_size.get(),#現在のフォントサイズ
+            "font_size": DEFAULT_FONT_SIZE,#現在のフォントサイズ
             "content": data_to_save#実際のメモ内容
         }
 
@@ -242,7 +257,6 @@ def save_file(overwrite=False):
         print("保存完了", "ファイルが正常に保存されました。")
 
         form.title(os.path.basename(filepath))
-        modified = False#ファイル内容変更フラグOFF
         main_memo.edit_modified(False)#Tkinterのmodifiedフラグもリセット
 
     except Exception as e:
@@ -264,21 +278,20 @@ def put_one_forward():
 
 def func_modified(event=None):
     """main_memoの編集状態が変更されたときに呼び出される関数"""
-    global modified
+    global current_filepath
     is_tk_modified = main_memo.edit_modified()
     
     if is_tk_modified:
         #Tkinterが変更済みと判断した場合、ファイル内容変更フラグON
-        modified = True
+        main_memo.edit_modified(True)
+        form.title(f"* {form.title().lstrip('*')}")
     else:
         #Tkinterが未変更と判断した場合、ファイル内容変更フラグOFF
-        modified = False
+        main_memo.edit_modified(False)
 
 def on_closing():
     """アプリケーションを閉じる前に確認"""
-    global modified
-
-    if modified:#ファイル内容が変更されていた場合
+    if main_memo.edit_modified():#ファイル内容が変更されていた場合
         result = messagebox.askyesnocancel("確認", "変更内容を保存しますか？")
         if result is None:#キャンセルが選択された場合
             return
@@ -288,12 +301,14 @@ def on_closing():
 
 def change_defaultfont_size(size):
     """メインメモのフォントサイズを変更する"""
+    global DEFAULT_FONT_SIZE
     current_font = main_memo.cget("font")#現在のフォント設定を取得
     font_parts = current_font.rsplit(" ", 1)#フォント名とサイズを分割
     font_name = font_parts[0] if len(font_parts) > 1 else "Consolas"#デフォルトフォント
 
     main_memo.config(font=(font_name, size))#フォントサイズを変更
-    selected_font_size.set(size)
+    main_memo.edit_modified(True)
+    DEFAULT_FONT_SIZE = size
 
     #ウィンドウを中央に配置
     form.update_idletasks()
@@ -620,7 +635,6 @@ def show_about():
 
 def show_how_to_use():
     """使い方を表示"""
-    #スクロールバーつきのメッセージボックスを表示
     messagebox.showinfo(
         "使い方",
         "メニューバーの機能紹介\n\n"
@@ -669,14 +683,14 @@ def show_version():
     """バージョン情報を表示"""
     messagebox.showinfo(
         "バージョン情報",
-        "バージョン:\t1.1.0\n"
-        "更新日:\t2025/08/20\n"
+        "バージョン:\t1.1.2\n"
+        "更新日:\t2025/08/27\n"
     )
 
 #文字設定系
 def change_font_color():
     """選択したテキストの色を変更する関数"""
-    global default_font_color
+    global DEFAULT_FONT_COLOR
     color_code = None
 
     color_tuple = colorchooser.askcolor(title="文字色を選択")#文字色を選択するダイアログを表示
@@ -687,7 +701,13 @@ def change_font_color():
         try:
             start_index = main_memo.index(tk.SEL_FIRST)
             end_index = main_memo.index(tk.SEL_LAST)
+
+            #既存の色タグを削除
+            for tag_name in main_memo.tag_names():
+                if tag_name.startswith("color_"):
+                    main_memo.tag_remove(tag_name, start_index, end_index)
             
+            #新しい色タグを適用
             tag_name = f"color_{color_code.replace('#', '')}"
 
             main_memo.tag_configure(tag_name, foreground=color_code)
@@ -696,7 +716,7 @@ def change_font_color():
         except tk.TclError:
             #選択範囲がない場合デフォルトカラーを変更する
             if messagebox.askyesno("確認", "選択範囲がありません。デフォルトの文字色を変更しますか？"):
-                default_font_color = color_code
+                DEFAULT_FONT_COLOR = color_code
                 main_memo.config(foreground=color_code)
                 main_memo.edit_modified(True)
 
@@ -707,9 +727,9 @@ def change_font_size(size):
         end_index = main_memo.index(tk.SEL_LAST)
         
         #既存のフォントサイズタグをすべて削除
-        for tag_name in main_memo.tag_names():
-            if tag_name.startswith("font_"):
-                main_memo.tag_remove(tag_name, start_index, end_index)
+        for item_value in main_memo.tag_names():
+            if item_value.startswith("font_"):
+                main_memo.tag_remove(item_value, start_index, end_index)
         
         #動的なタグ名を生成
         new_tag = f"font_{size}pt"
@@ -721,22 +741,24 @@ def change_font_size(size):
         #新しいタグを設定して選択範囲に適用
         main_memo.tag_configure(new_tag, font=new_font)
         main_memo.tag_add(new_tag, start_index, end_index)
-        
+        main_memo.edit_modified(True)
+
     except tk.TclError:
         if messagebox.askyesno("確認", "選択範囲がありません。デフォルトのフォントサイズを変更しますか？"):
             change_defaultfont_size(size)
+            main_memo.edit_modified(True)
 
 def change_windowmode(mode):
     """ウィンドウモードを変更する関数"""
-    global default_font_color
-    #ライトモード
+    global DEFAULT_FONT_COLOR
+    #ライトモード"
     if mode == "light":
         form.tk_setPalette(background="#ffffff", foreground="#000000")
-        default_font_color = "black"
+        DEFAULT_FONT_COLOR = "black"
     #ダークモード
     elif mode == "dark":
         form.tk_setPalette(background="#2C2C2C", foreground="#ffffff")
-        default_font_color = "white"
+        DEFAULT_FONT_COLOR = "white"
 
 
 
@@ -745,9 +767,6 @@ form=tk.Tk()#tk作成
 form.title("ピクメモ")
 form.minsize(1000,560)
 form.protocol("WM_DELETE_WINDOW", on_closing)
-
-selected_font_size = tk.IntVar()# フォントサイズを保持する変数
-selected_font_size.set(DEFAULT_FONT_SIZE)  # 初期フォントサイズをデフォルト値に設定
 
 #メニューバーの作成
 menubar=Menu(form)
@@ -783,7 +802,7 @@ image_menu.add_command(label="文字色(R)", command=change_font_color)
 font_size_menu = Menu(image_menu, tearoff=0)
 image_menu.add_cascade(label="フォントサイズ", menu=font_size_menu)
 for size in [8, 10, 12, 14, 16, 18, 20, 22, 24]:
-    font_size_menu.add_radiobutton(label=f"{size}pt", command=lambda s=size: change_font_size(s), variable=selected_font_size, value=size)
+    font_size_menu.add_radiobutton(label=f"{size}pt", command=lambda s=size: change_font_size(s), variable=DEFAULT_FONT_SIZE, value=size)
 
 #設定メニュー
 settings_menu = Menu(menubar, tearoff=0)
@@ -793,7 +812,7 @@ settings_menu.add_cascade(label="ウィンドウ設定", menu=window_menu)
 font_menu = Menu(window_menu, tearoff=0)
 window_menu.add_cascade(label="デフォルトフォントサイズ", menu=font_menu)
 for size in [8, 10, 12, 14, 16, 18, 20, 22, 24]:
-    font_menu.add_radiobutton(label=f"{size}pt", command=lambda s=size: change_defaultfont_size(s), variable=selected_font_size, value=size)
+    font_menu.add_radiobutton(label=f"{size}pt", command=lambda s=size: change_defaultfont_size(s), variable=DEFAULT_FONT_SIZE, value=size)
 theme_menu = Menu(window_menu, tearoff=0)
 window_menu.add_cascade(label="画面モード設定", menu=theme_menu)
 theme_menu.add_command(label="ライトモード", command=lambda: change_windowmode("light"))
@@ -825,7 +844,7 @@ text_frame = tk.Frame(form)
 text_frame.pack(expand=True, fill='both')
 
 #テキスト画面を表示させる
-main_memo = tk.Text(text_frame, bg="white", fg="black", wrap=tk.WORD, font=("Consolas", selected_font_size.get()), undo=True)
+main_memo = tk.Text(text_frame, bg="white", fg=DEFAULT_FONT_COLOR, wrap=tk.WORD, font=("Consolas", DEFAULT_FONT_SIZE), undo=True)
 main_memo.pack(side='left', expand=True, fill='both')
 
 scrollbar = tk.Scrollbar(text_frame, command=main_memo.yview)
@@ -845,5 +864,6 @@ y = (form.winfo_screenheight() // 2) - (form.winfo_height() // 2) #(画面の高
 
 form.geometry(f"+{x}+{y}")
 
+new_file()#新規作成で初期化
 
 form.mainloop()#実行
